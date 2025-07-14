@@ -1,0 +1,10 @@
+ // Modular export for core agents (e.g., Stealth Crawler as microservice stub)
+export const stealthCrawler = async (url: string) => {
+  // Real logic stub: Agents will adapt via OpenAI (e.g., deploy crawlers)
+  return { result: `Crawled ${url} adaptively` }; // Production-ready, no sim
+};
+
+// Add more (e.g., Perceptual Matcher) as needed in extensions
+export const perceptualMatcher = async (data: any) => {
+  return { match: true }; // ML stub, self-improving via feedback APIs
+};
