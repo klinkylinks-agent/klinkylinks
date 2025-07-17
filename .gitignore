@@ -1,4 +1,0 @@
-# Blueprint standard ignores
-node_modules
-.next
-.env.local
