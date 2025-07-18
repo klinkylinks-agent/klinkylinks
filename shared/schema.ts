@@ -14,10 +14,11 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// Users table for Replit Auth
+// Users table for standalone authentication
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(), // Replit user ID
-  email: varchar("email").unique(),
+  id: varchar("id").primaryKey().notNull(),
+  email: varchar("email").unique().notNull(),
+  password: text("password").notNull(), // hashed password
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -185,9 +186,9 @@ export const insertMonitoringScanSchema = createInsertSchema(monitoringScans).om
 });
 
 // Types
-export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
 export type InsertContentItem = z.infer<typeof insertContentItemSchema>;
 export type ContentItem = typeof contentItems.$inferSelect;
 export type InsertInfringement = z.infer<typeof insertInfringementSchema>;

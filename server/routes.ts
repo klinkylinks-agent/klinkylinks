@@ -7,7 +7,7 @@ import Stripe from "stripe";
 import multer from "multer";
 import { generateDmcaNotice, analyzeContent, generateFingerprint } from "./services/openai";
 import { startMonitoring } from "./services/monitoring";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -27,24 +27,14 @@ const upload = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
-  await setupAuth(app);
+  setupAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Auth routes - Note: /api/register, /api/login, /api/logout, /api/user are now handled in auth.ts
 
   // Dashboard routes
   app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const stats = await storage.getDashboardStats(userId);
       res.json(stats);
     } catch (error: any) {
@@ -54,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dashboard/recent-similarity-matches", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const matches = await storage.getInfringements(userId, 10);
       res.json(matches);
     } catch (error: any) {
@@ -65,7 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Content routes
   app.get("/api/content", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const contentItems = await storage.getContentItems(userId);
       res.json(contentItems);
     } catch (error: any) {
@@ -79,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { title, description } = req.body;
       
       // Analyze content with OpenAI
@@ -119,7 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/content", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const content = await storage.getContentItems(userId);
       res.json(content);
     } catch (error: any) {
@@ -130,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Infringement routes
   app.get("/api/infringements", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const infringements = await storage.getInfringements(userId);
       res.json(infringements);
     } catch (error: any) {
@@ -172,7 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // DMCA routes
   app.get("/api/dmca", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const notices = await storage.getDmcaNotices(userId);
       res.json(notices);
     } catch (error: any) {
@@ -197,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monitoring routes
   app.post("/api/monitoring/manual-scan", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { contentId } = req.body;
       
       const scan = await storage.createMonitoringScan({
@@ -220,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stripe payment routes
   app.post("/api/create-subscription", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       const { priceId } = req.body;
       
@@ -296,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agents/scan", isAuthenticated, async (req: any, res) => {
     try {
       const { query, platforms } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Import and use the core agents
       const { SCA } = await import('./agents/coreAgents.js');
@@ -318,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agents/fingerprint", isAuthenticated, async (req: any, res) => {
     try {
       const { contentId } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const content = await storage.getContentItem(contentId);
       if (!content || content.userId !== userId) {
@@ -342,7 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agents/dmca/generate", isAuthenticated, async (req: any, res) => {
     try {
       const { infringementId } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const infringement = await storage.getInfringement(infringementId);
       if (!infringement || infringement.userId !== userId) {
@@ -406,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/agents/batch-analysis", isAuthenticated, async (req: any, res) => {
     try {
       const { contentIds, suspiciousUrls } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get content items for the user
       const contentItems = [];
@@ -437,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monitoring routes
   app.get("/api/monitoring/status", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       // Return platform monitoring status
       const platforms = [
         {
@@ -485,7 +475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/monitoring/schedule-scan", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       // Schedule a new monitoring scan
       await storage.createMonitoringScan({
         userId,

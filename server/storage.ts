@@ -19,8 +19,10 @@ import { db } from "./db";
 import { eq, desc, and, count, sql } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (Replit Auth compatible)
+  // User operations (standalone auth)
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserStripeInfo(userId: string, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
   updateUserSubscription(userId: string, status: string, tier: string): Promise<User>;
@@ -73,6 +75,24 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .returning();
+    return user;
+  }
+
+  async getUser_old(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
