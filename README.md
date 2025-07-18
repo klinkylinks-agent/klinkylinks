@@ -25,7 +25,11 @@ Cognitive agents in coreAgents.ts with self-scoring and orchestration.
 A modern content protection Software-as-a-Service platform designed for content creators to monitor, detect, and respond to copyright infringement across multiple search platforms.
 
 ## Features
-
+## Features
+<!-- Deployment trigger: Authentication system updated Jul 18, 2025 -->
+- **Content Upload & Fingerprinting**: Secure file upload with AI-powered content analysis
+- **Multi-Platform Monitoring**: Automated scanning across Google Images/Videos and Bing
+- **Infringement Detection**: Perceptual matching and similarity scoring for violation detection
 - **Content Upload & Fingerprinting**: Secure file upload with AI-powered content analysis
 - **Multi-Platform Monitoring**: Automated scanning across Google Images/Videos and Bing
 - **Infringement Detection**: Perceptual matching and similarity scoring for violation detection
