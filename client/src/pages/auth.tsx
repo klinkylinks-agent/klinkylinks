@@ -16,16 +16,76 @@ export default function Auth() {
     e.preventDefault();
     setIsLoading(true);
     
-    // Redirect to Replit auth for actual authentication
-    window.location.href = '/api/login';
+    try {
+      const formData = new FormData(e.target as HTMLFormElement);
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.get('email'),
+          password: formData.get('password'),
+        }),
+      });
+
+      if (response.ok) {
+        // Redirect to dashboard on successful login
+        window.location.href = '/dashboard';
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Login failed');
+      }
+    } catch (error) {
+      alert('Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Redirect to Replit auth for actual authentication
-    window.location.href = '/api/login';
+    try {
+      const formData = new FormData(e.target as HTMLFormElement);
+      const email = formData.get('email') as string;
+      const password = formData.get('password') as string;
+      const confirmPassword = formData.get('confirmPassword') as string;
+      const firstName = formData.get('firstName') as string;
+      const lastName = formData.get('lastName') as string;
+
+      if (password !== confirmPassword) {
+        alert('Passwords do not match');
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
+        }),
+      });
+
+      if (response.ok) {
+        // Redirect to dashboard on successful registration
+        window.location.href = '/dashboard';
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Registration failed');
+      }
+    } catch (error) {
+      alert('Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -79,6 +139,7 @@ export default function Auth() {
                       <Label htmlFor="email" className="text-white">Email</Label>
                       <Input
                         id="email"
+                        name="email"
                         type="email"
                         placeholder="Enter your email"
                         className="bg-slate-700 border-slate-600 text-white placeholder-gray-400"
@@ -90,6 +151,7 @@ export default function Auth() {
                       <div className="relative">
                         <Input
                           id="password"
+                          name="password"
                           type={showPassword ? "text" : "password"}
                           placeholder="Enter your password"
                           className="bg-slate-700 border-slate-600 text-white placeholder-gray-400 pr-10"
@@ -118,10 +180,33 @@ export default function Auth() {
 
                 <TabsContent value="signup" className="space-y-4">
                   <form onSubmit={handleSignup} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="firstName" className="text-white">First Name</Label>
+                        <Input
+                          id="firstName"
+                          name="firstName"
+                          type="text"
+                          placeholder="First name"
+                          className="bg-slate-700 border-slate-600 text-white placeholder-gray-400"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="lastName" className="text-white">Last Name</Label>
+                        <Input
+                          id="lastName"
+                          name="lastName"
+                          type="text"
+                          placeholder="Last name"
+                          className="bg-slate-700 border-slate-600 text-white placeholder-gray-400"
+                        />
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-email" className="text-white">Email</Label>
                       <Input
                         id="signup-email"
+                        name="email"
                         type="email"
                         placeholder="Enter your email"
                         className="bg-slate-700 border-slate-600 text-white placeholder-gray-400"
@@ -133,6 +218,7 @@ export default function Auth() {
                       <div className="relative">
                         <Input
                           id="signup-password"
+                          name="password"
                           type={showPassword ? "text" : "password"}
                           placeholder="Create a password"
                           className="bg-slate-700 border-slate-600 text-white placeholder-gray-400 pr-10"
@@ -154,6 +240,7 @@ export default function Auth() {
                       <div className="relative">
                         <Input
                           id="confirm-password"
+                          name="confirmPassword"
                           type={showConfirmPassword ? "text" : "password"}
                           placeholder="Confirm your password"
                           className="bg-slate-700 border-slate-600 text-white placeholder-gray-400 pr-10"

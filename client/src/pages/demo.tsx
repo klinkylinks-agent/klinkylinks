@@ -23,6 +23,7 @@ import {
 export default function Demo() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
 
   const demoSteps = [
     {
@@ -175,7 +176,7 @@ export default function Demo() {
                 Back to Home
               </Button>
               <Button 
-                onClick={() => window.location.href = "/api/login"}
+                onClick={() => alert("Live signup coming soon! Experience the full demo below to see KlinkyLinks in action.")}
                 className="bg-electric-blue/20 text-electric-blue hover:bg-electric-blue/30"
               >
                 Get Started
