@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getDashboardStats, getRecentViolations, getInfringements } from "@/lib/api";
+import { getDashboardStats, getRecentSimilarityMatches, getSimilarityMatches } from "@/lib/api";
 
 export function useDashboardStats(userId: number) {
   return useQuery({
@@ -9,18 +9,18 @@ export function useDashboardStats(userId: number) {
   });
 }
 
-export function useRecentViolations(userId: number) {
+export function useRecentSimilarityMatches(userId: number) {
   return useQuery({
-    queryKey: ["/api/dashboard/recent-violations", userId],
-    queryFn: () => getRecentViolations(userId),
+    queryKey: ["/api/dashboard/recent-similarity-matches", userId],
+    queryFn: () => getRecentSimilarityMatches(userId),
     enabled: !!userId,
   });
 }
 
-export function useViolations(userId: number) {
+export function useSimilarityMatches(userId: number) {
   return useQuery({
-    queryKey: ["/api/infringements", userId],
-    queryFn: () => getInfringements(userId),
+    queryKey: ["/api/similarity-matches", userId],
+    queryFn: () => getSimilarityMatches(userId),
     enabled: !!userId,
   });
 }
@@ -28,7 +28,7 @@ export function useViolations(userId: number) {
 export function useContentItems(userId: number) {
   return useQuery({
     queryKey: ["/api/content", userId],
-    queryFn: () => getInfringements(userId),
+    queryFn: () => getSimilarityMatches(userId),
     enabled: !!userId,
   });
 }

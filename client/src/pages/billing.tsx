@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { PaymentAcknowledgment } from "@/components/payment/PaymentAcknowledgment";
+import { CancellationWorkflow } from "@/components/payment/CancellationWorkflow";
+import { TechOnlyDisclaimer } from "@/components/legal/TechOnlyDisclaimer";
+import { Link } from "wouter";
 import { 
   CreditCard, 
   Download, 
@@ -13,7 +17,8 @@ import {
   Shield, 
   CheckCircle, 
   Star,
-  ExternalLink 
+  ExternalLink,
+  AlertTriangle
 } from "lucide-react";
 
 interface BillingPlan {
@@ -24,6 +29,7 @@ interface BillingPlan {
   features: string[];
   popular?: boolean;
   current?: boolean;
+
 }
 
 interface Invoice {
@@ -37,26 +43,13 @@ interface Invoice {
 
 const plans: BillingPlan[] = [
   {
-    id: 'free',
-    name: 'Free',
-    price: 0,
-    interval: 'month',
-    features: [
-      'Up to 5 protected items',
-      'Basic monitoring',
-      'Email notifications',
-      'Community support'
-    ],
-    current: true,
-  },
-  {
     id: 'basic',
     name: 'Basic',
     price: 29,
     interval: 'month',
     features: [
-      'Up to 50 protected items',
-      'Advanced monitoring',
+      'Up to 50 protected images & videos',
+      'Google Images & Videos monitoring',
       'Real-time alerts',
       'DMCA assistance',
       'Priority support'
@@ -68,8 +61,8 @@ const plans: BillingPlan[] = [
     price: 99,
     interval: 'month',
     features: [
-      'Unlimited protected items',
-      'Multi-platform monitoring',
+      'Unlimited protected images & videos',
+      'Google + Bing Images & Videos monitoring',
       'Auto-DMCA generation',
       'Screenshot evidence',
       'Legal template library',
@@ -84,7 +77,7 @@ const plans: BillingPlan[] = [
     interval: 'month',
     features: [
       'Everything in Pro',
-      'Custom monitoring rules',
+      'Custom monitoring rules for images & videos',
       'API access',
       'White-label options',
       'Legal consultation',
@@ -150,7 +143,7 @@ export default function Billing() {
   };
 
   const getYearlyDiscount = (monthlyPrice: number) => {
-    const yearlyPrice = monthlyPrice * 10; // 2 months free
+    const yearlyPrice = monthlyPrice * 10; // 2 months discount
     const savings = (monthlyPrice * 12) - yearlyPrice;
     return { yearlyPrice, savings };
   };
@@ -162,10 +155,10 @@ export default function Billing() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
           <div>
             <h1 className="text-4xl font-bold mb-2">
-              <span className="text-gradient">Billing & Subscription</span>
+              <span className="text-gradient">Choose Your Plan</span>
             </h1>
             <p className="text-gray-400 text-lg">
-              Manage your subscription and billing information
+              Credit card required • Instant activation • Monthly billing
             </p>
           </div>
           <div className="flex space-x-4 mt-4 lg:mt-0">
@@ -179,6 +172,13 @@ export default function Billing() {
             </Button>
           </div>
         </div>
+
+        {/* Legal Disclaimer */}
+        <TechOnlyDisclaimer 
+          context="billing" 
+          prominent={true}
+          showExternalLinks={true}
+        />
 
         {/* Current Plan Overview */}
         <Card className="gradient-border mb-8">
@@ -221,6 +221,31 @@ export default function Billing() {
                 </p>
               </div>
             </div>
+            
+            {/* Subscription Management - Only show if user has paid plan */}
+            {currentPlan?.price > 0 && (
+              <div className="mt-6 pt-6 border-t border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-white">Subscription Management</h4>
+                    <p className="text-sm text-gray-400">
+                      Next billing: August 1, 2024 • ${currentPlan?.price}/{currentPlan?.interval}
+                    </p>
+                  </div>
+                  <CancellationWorkflow
+                    currentPlan={currentPlan?.name}
+                    nextBillingDate="August 1, 2024"
+                    amount={`$${currentPlan?.price}`}
+                    onCancel={() => {
+                      toast({
+                        title: "Subscription Cancelled",
+                        description: "Your subscription will not renew. Service continues until billing period ends.",
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -291,19 +316,29 @@ export default function Billing() {
                   ))}
                 </ul>
 
-                <Button
-                  onClick={() => handlePlanChange(plan.id)}
-                  disabled={isCurrentPlan}
-                  className={`w-full ${
-                    isCurrentPlan 
-                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
-                      : plan.popular 
-                        ? 'btn-electric' 
-                        : 'btn-hot'
-                  }`}
-                >
-                  {isCurrentPlan ? 'Current Plan' : 'Upgrade'}
-                </Button>
+                {isCurrentPlan ? (
+                  <Button
+                    disabled
+                    className="w-full bg-gray-700 text-gray-400 cursor-not-allowed"
+                  >
+                    Current Plan
+                  </Button>
+                ) : (
+                  <PaymentAcknowledgment
+                    planName={plan.name}
+                    price={`$${displayPrice}`}
+                    billingCycle={billingInterval}
+                    onProceed={() => handlePlanChange(plan.id)}
+                  >
+                    <Button
+                      className={`w-full ${
+                        plan.popular ? 'btn-electric' : 'btn-hot'
+                      }`}
+                    >
+                      Subscribe Now
+                    </Button>
+                  </PaymentAcknowledgment>
+                )}
               </div>
             </Card>
           );
@@ -397,6 +432,52 @@ export default function Billing() {
           </div>
         </Card>
       </div>
+
+      {/* Legal Compliance Footer */}
+      <Card className="gradient-border mt-8">
+        <div className="gradient-border-inner p-6">
+          <div className="flex items-start gap-4">
+            <AlertTriangle className="text-amber-400 mt-1 flex-shrink-0" size={24} />
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-3">Important Legal Information</h3>
+              <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-300">
+                <div>
+                  <h4 className="font-semibold text-white mb-2">Payment Terms</h4>
+                  <ul className="space-y-1">
+                    <li>• All sales are final and non-refundable</li>
+                    <li>• Automatic renewal until cancelled</li>
+                    <li>• No prorated refunds for early cancellation</li>
+                    <li>• Payment failure may result in service suspension</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-white mb-2">Service Disclaimer</h4>
+                  <ul className="space-y-1">
+                    <li>• Technology tools only, no legal services</li>
+                    <li>• No guarantee of legal outcomes</li>
+                    <li>• User responsible for all legal decisions</li>
+                    <li>• Service may be modified or discontinued</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-gray-700">
+                <Link href="/terms" className="text-blue-400 hover:underline text-sm">
+                  Terms of Service
+                </Link>
+                <Link href="/refund-policy" className="text-blue-400 hover:underline text-sm">
+                  Refund Policy
+                </Link>
+                <Link href="/privacy" className="text-blue-400 hover:underline text-sm">
+                  Privacy Policy
+                </Link>
+                <a href="mailto:admin@klinkylinks.com" className="text-blue-400 hover:underline text-sm">
+                  Legal Questions
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

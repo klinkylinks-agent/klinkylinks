@@ -6,8 +6,8 @@ export async function getDashboardStats(userId: number) {
   return response.json();
 }
 
-export async function getRecentViolations(userId: number) {
-  const response = await apiRequest("GET", `/api/dashboard/recent-violations/${userId}`);
+export async function getRecentSimilarityMatches(userId: number) {
+  const response = await apiRequest("GET", `/api/dashboard/recent-similarity-matches/${userId}`);
   return response.json();
 }
 
@@ -31,25 +31,27 @@ export async function getContentItems(userId: number) {
   return response.json();
 }
 
-// Infringement API
-export async function getInfringements(userId: number) {
-  const response = await apiRequest("GET", `/api/infringements/${userId}`);
+// Similarity Match API
+export async function getSimilarityMatches(userId: number) {
+  const response = await apiRequest("GET", `/api/similarity-matches/${userId}`);
   return response.json();
 }
 
-export async function createDmcaNotice(infringementId: number) {
-  const response = await apiRequest("POST", `/api/infringements/${infringementId}/dmca`);
+export async function createDmcaTemplate(matchId: number) {
+  const response = await apiRequest("POST", `/api/similarity-matches/${matchId}/dmca-template`);
   return response.json();
 }
 
-// DMCA API
-export async function getDmcaNotices(userId: number) {
-  const response = await apiRequest("GET", `/api/dmca/${userId}`);
+// DMCA Template API
+export async function getDmcaTemplates(userId: number) {
+  const response = await apiRequest("GET", `/api/dmca-templates/${userId}`);
   return response.json();
 }
 
-export async function approveDmcaNotice(noticeId: number) {
-  const response = await apiRequest("POST", `/api/dmca/${noticeId}/approve`);
+export async function completeTemplate(templateId: number, completedContent: string) {
+  const response = await apiRequest("POST", `/api/dmca-templates/${templateId}/complete`, {
+    completedContent
+  });
   return response.json();
 }
 

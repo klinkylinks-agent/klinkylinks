@@ -32,8 +32,8 @@ export default function Home() {
     enabled: !!user,
   });
 
-  const { data: recentViolations, isLoading: violationsLoading } = useQuery({
-    queryKey: ["/api/dashboard/recent-violations"],
+  const { data: recentMatches, isLoading: matchesLoading } = useQuery({
+    queryKey: ["/api/dashboard/recent-similarity-matches"],
     enabled: !!user,
   });
 
@@ -198,25 +198,25 @@ export default function Home() {
 
           <div className="morphing-card group p-6 text-center floating" style={{animationDelay: '100ms'}}>
             <div className="relative z-10">
-              <h4 className="text-gray-400 text-sm font-medium mb-4 uppercase tracking-wider">Violations Detected</h4>
-              <div className="text-5xl font-black mb-3 text-red-400 group-hover:gradient-text transition-all duration-500">
+              <h4 className="text-gray-400 text-sm font-medium mb-4 uppercase tracking-wider">Infringements</h4>
+              <div className="text-5xl font-black mb-3 text-blue-400 group-hover:gradient-text transition-all duration-500">
                 {statsLoading ? (
                   <div className="animate-pulse bg-slate-700 h-12 w-20 rounded-xl mx-auto"></div>
-                ) : stats?.totalViolations || 0}
+                ) : stats?.totalMatches || 0}
               </div>
-              <p className="text-gray-500 font-light">Total found</p>
+              <p className="text-gray-500 font-light">Detected</p>
             </div>
           </div>
 
           <div className="morphing-card group p-6 text-center floating" style={{animationDelay: '200ms'}}>
             <div className="relative z-10">
-              <h4 className="text-gray-400 text-sm font-medium mb-4 uppercase tracking-wider">DMCA Sent</h4>
+              <h4 className="text-gray-400 text-sm font-medium mb-4 uppercase tracking-wider">DMCA Notices</h4>
               <div className="text-5xl font-black mb-3 text-yellow-400 group-hover:gradient-text transition-all duration-500">
                 {statsLoading ? (
                   <div className="animate-pulse bg-slate-700 h-12 w-20 rounded-xl mx-auto"></div>
-                ) : stats?.dmcaSent || 0}
+                ) : stats?.templatesGenerated || 0}
               </div>
-              <p className="text-gray-500 font-light">Takedown notices</p>
+              <p className="text-gray-500 font-light">Generated</p>
             </div>
           </div>
 
@@ -243,36 +243,36 @@ export default function Home() {
               </div>
               <div>
                 <h3 className="text-2xl font-bold gradient-text">
-                  Recent Violations
+                  Recent Infringements
                 </h3>
                 <p className="text-gray-300 font-light">
-                  Latest copyright infringements detected across the web
+                  Latest violations detected across monitored platforms
                 </p>
               </div>
             </div>
-            {violationsLoading ? (
+            {matchesLoading ? (
               <div className="text-center py-12">
                 <div className="relative">
                   <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto" />
                   <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-md"></div>
                 </div>
-                <p className="text-gray-400 mt-4 text-lg">Loading violations...</p>
+                <p className="text-gray-400 mt-4 text-lg">Loading matches...</p>
               </div>
-            ) : !recentViolations || recentViolations.length === 0 ? (
+            ) : !recentMatches || recentMatches.length === 0 ? (
               <div className="text-center py-12">
                 <div className="relative mb-6">
                   <CheckCircle className="w-16 h-16 text-green-400 mx-auto" />
                   <div className="absolute inset-0 bg-green-400/20 rounded-full blur-lg"></div>
                 </div>
-                <p className="text-gray-300 text-lg mb-2">No violations detected yet</p>
+                <p className="text-gray-300 text-lg mb-2">No similarity matches detected yet</p>
                 <p className="text-sm text-gray-500">Upload content to start monitoring</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {recentViolations.slice(0, 5).map((violation: any, index: number) => (
+                {recentMatches.slice(0, 5).map((match: any, index: number) => (
                   <div 
-                    key={violation.id} 
-                    className="group flex items-center justify-between p-5 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-yellow-500/50 transition-all duration-300 transform hover:-translate-y-1"
+                    key={match.id} 
+                    className="group flex items-center justify-between p-5 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 transform hover:-translate-y-1"
                   >
                     <div className="flex items-center gap-4">
                       <div className="relative">

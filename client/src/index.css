@@ -126,6 +126,9 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: gradientShift 8s ease infinite;
+    padding: 0.1em 0;
+    line-height: 1.2;
+    display: inline-block;
   }
 
   /* Floating Elements - Removed wavy motion for accessibility */

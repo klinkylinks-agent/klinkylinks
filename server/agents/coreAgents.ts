@@ -1,4 +1,4 @@
-// coreAgents.ts - Cognitive AI agents per blueprint
+// coreAgents.ts - Technology-Only AI agents for content monitoring
 import OpenAI from 'openai';
 import cron from 'node-cron';
 import puppeteer from 'puppeteer';
@@ -8,6 +8,9 @@ import { eq } from 'drizzle-orm';
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Legal Disclaimer: This system provides technology tools only, not legal advice
+// Users are responsible for all legal determinations and submissions
 
 // Master Orchestrator Agent (POA) - Process Orchestration Agent
 export const POA = {
@@ -202,18 +205,21 @@ export const PMA = {
       
       const similarity = dotProduct / (magnitudeA * magnitudeB);
       
-      console.log(`🎯 PMA: Similarity calculated: ${(similarity * 100).toFixed(2)}%`);
+      console.log(`🎯 PMA: Technical similarity calculated: ${(similarity * 100).toFixed(2)}%`);
       
+      // Technology-only response - no legal determinations
       return {
         similarity,
-        isMatch: similarity > 0.85, // 85% threshold
-        confidence: similarity > 0.95 ? 'high' : similarity > 0.85 ? 'medium' : 'low',
+        similarityPercentage: Math.round(similarity * 100),
+        confidenceLevel: similarity > 0.95 ? 'high' : similarity > 0.85 ? 'medium' : 'low',
+        technicalMatch: similarity > 0.85, // Technical threshold, not legal determination
         timestamp: new Date().toISOString(),
+        disclaimer: "This is a technical similarity match, not a legal determination of infringement"
       };
       
     } catch (error: any) {
       console.error('❌ PMA comparison error:', error);
-      return { similarity: 0, isMatch: false, error: error.message };
+      return { similarity: 0, technicalMatch: false, error: error.message };
     }
   },
 
@@ -242,13 +248,15 @@ export const PMA = {
           const suspiciousFingerprint = urlAnalysis.data[0].embedding;
           const comparison = await PMA.compareFingerprints(contentFingerprint, suspiciousFingerprint);
           
-          if (comparison.isMatch) {
+          if (comparison.technicalMatch) {
             results.push({
               contentId: content.id,
               suspiciousUrl: url,
               similarity: comparison.similarity,
-              confidence: comparison.confidence,
+              similarityPercentage: comparison.similarityPercentage,
+              confidenceLevel: comparison.confidenceLevel,
               timestamp: new Date().toISOString(),
+              disclaimer: "Technical match detected - user must determine legal implications"
             });
           }
         }
@@ -264,36 +272,44 @@ export const PMA = {
   }
 };
 
-// DMCA & Takedown Agent (DTA) - Draft notices with OpenAI
+// DMCA Template Generator (DTA) - Technology-only template creation
 export const DTA = {
-  generateNotice: async (infringementData: any, ownerInfo: any) => {
+  generateTemplate: async (matchData: any, ownerInfo: any) => {
     try {
-      console.log(`📝 DTA: Generating DMCA notice for infringement: ${infringementData.url}`);
+      console.log(`📝 DTA: Generating DMCA template for similarity match: ${matchData.url}`);
       
       const prompt = `
-Generate a professional DMCA takedown notice for the following infringement:
+Generate a DMCA takedown notice template for the following similarity match:
 
-INFRINGEMENT DETAILS:
-- Infringing URL: ${infringementData.url}
-- Platform: ${infringementData.platform}
-- Content Title: ${infringementData.contentTitle || 'Protected Creative Work'}
-- Description: ${infringementData.description || 'Unauthorized use of copyrighted material'}
+SIMILARITY MATCH DETAILS:
+- Matched URL: ${matchData.url}
+- Platform: ${matchData.platform}
+- Content Title: ${matchData.contentTitle || '[USER MUST SPECIFY]'}
+- Similarity Score: ${matchData.similarityPercentage}%
+- Technical Match: ${matchData.technicalMatch ? 'Yes' : 'No'}
 
-OWNER INFORMATION:
-- Name: ${ownerInfo.name || 'Content Owner'}
-- Email: ${ownerInfo.email || 'owner@example.com'}
-- Business: ${ownerInfo.businessName || ''}
+OWNER INFORMATION TEMPLATE:
+- Name: ${ownerInfo.name || '[USER MUST COMPLETE]'}
+- Email: ${ownerInfo.email || '[USER MUST COMPLETE]'}
+- Business: ${ownerInfo.businessName || '[USER MUST COMPLETE]'}
 
-Please create a formal DMCA notice that includes:
-1. Clear identification of the copyrighted work
-2. Identification of the infringing material
-3. Contact information
-4. Good faith statement
-5. Accuracy statement under penalty of perjury
-6. Electronic signature
-7. Platform-specific formatting if applicable
+Create a template that includes:
+1. Template fields for copyrighted work identification [USER MUST COMPLETE]
+2. Template fields for infringing material identification [USER MUST COMPLETE]  
+3. Contact information placeholders [USER MUST COMPLETE]
+4. Good faith statement template [USER MUST REVIEW AND AFFIRM]
+5. Accuracy statement template [USER MUST REVIEW AND AFFIRM]
+6. Electronic signature placeholder [USER MUST COMPLETE]
+7. Platform-specific formatting
 
-Make it professional, legally compliant, and ready for submission. Include placeholders for user approval and review.
+IMPORTANT: This is a template only. Include prominent disclaimers that:
+- User must complete all bracketed fields
+- User must make all legal determinations
+- User must review for accuracy before submission
+- User assumes all legal responsibility
+- This system provides no legal advice or validation
+
+Make it clear this is a template tool, not legal advice.
       `;
 
       const completion = await openai.chat.completions.create({
@@ -301,39 +317,41 @@ Make it professional, legally compliant, and ready for submission. Include place
         messages: [
           {
             role: 'system',
-            content: 'You are a legal document specialist who creates professional DMCA takedown notices. Generate formal, legally compliant notices that follow DMCA requirements.'
+            content: 'You are a document template generator. Create DMCA notice templates with clear placeholder fields that users must complete themselves. Include prominent disclaimers that users must make all legal determinations and assume all legal responsibility. Provide no legal advice or validation.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        temperature: 0.3, // Lower temperature for more consistent legal language
+        temperature: 0.1, // Very low temperature for consistent templates
       });
 
-      const noticeText = completion.choices[0].message.content;
+      const templateText = completion.choices[0].message.content;
       
-      // Store the notice in database for approval workflow
-      const [notice] = await db.insert(dmcaNotices).values({
-        infringementId: infringementData.id,
+      // Store the template in database for user completion
+      const [template] = await db.insert(dmcaNotices).values({
+        infringementId: matchData.id,
         userId: ownerInfo.userId,
-        recipientEmail: DTA.getPlatformEmail(infringementData.platform),
-        platform: infringementData.platform,
-        subject: `DMCA Takedown Notice - ${infringementData.contentTitle || 'Copyright Infringement'}`,
-        body: noticeText || '',
-        status: 'draft', // Requires human approval
+        recipientEmail: DTA.getPlatformEmail(matchData.platform),
+        platform: matchData.platform,
+        subject: `DMCA Template - Similarity Match ${matchData.similarityPercentage}%`,
+        body: templateText || '',
+        status: 'template_generated', // User must complete and submit
       }).returning();
 
-      console.log(`✅ DTA: DMCA notice generated and saved as draft ID: ${notice.id}`);
+      console.log(`✅ DTA: DMCA template generated and saved as template ID: ${template.id}`);
       
       return {
-        noticeId: notice.id,
-        subject: notice.subject,
-        body: noticeText,
-        recipientEmail: notice.recipientEmail,
-        platform: infringementData.platform,
-        status: 'draft_pending_approval',
-        requiresApproval: true,
+        templateId: template.id,
+        subject: template.subject,
+        body: templateText,
+        recipientEmail: template.recipientEmail,
+        platform: matchData.platform,
+        status: 'template_ready_for_completion',
+        requiresUserCompletion: true,
+        similarityScore: matchData.similarityPercentage,
+        disclaimer: "This is a template only. User must complete all fields and make all legal determinations.",
         generatedAt: new Date().toISOString(),
       };
       
@@ -356,32 +374,32 @@ Make it professional, legally compliant, and ready for submission. Include place
     return platformContacts[platform.toLowerCase() as keyof typeof platformContacts] || 'legal@platform.com';
   },
 
-  batchGenerateNotices: async (infringements: any[], ownerInfo: any) => {
+  batchGenerateTemplates: async (matches: any[], ownerInfo: any) => {
     try {
-      console.log(`📋 DTA: Batch generating ${infringements.length} DMCA notices`);
+      console.log(`📋 DTA: Batch generating ${matches.length} DMCA templates`);
       
-      const notices = [];
+      const templates = [];
       
-      for (const infringement of infringements) {
+      for (const match of matches) {
         try {
-          const notice = await DTA.generateNotice(infringement, ownerInfo);
-          notices.push(notice);
+          const template = await DTA.generateTemplate(match, ownerInfo);
+          templates.push(template);
           
           // Small delay to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 1000));
           
         } catch (error: any) {
-          console.error(`❌ Failed to generate notice for infringement ${infringement.id}:`, error);
-          notices.push({
-            infringementId: infringement.id,
+          console.error(`❌ Failed to generate template for match ${match.id}:`, error);
+          templates.push({
+            matchId: match.id,
             error: error.message,
             status: 'generation_failed',
           });
         }
       }
       
-      console.log(`✅ DTA: Batch generation complete. Generated ${notices.filter((n: any) => !n.error).length}/${infringements.length} notices`);
-      return notices;
+      console.log(`✅ DTA: Batch generation complete. Generated ${templates.filter((t: any) => !t.error).length}/${matches.length} templates`);
+      return templates;
       
     } catch (error: any) {
       console.error('❌ DTA batch generation error:', error);
@@ -389,28 +407,30 @@ Make it professional, legally compliant, and ready for submission. Include place
     }
   },
 
-  reviewAndApprove: async (noticeId: number, approved: boolean, userComments?: string) => {
+  markUserCompleted: async (templateId: number, userCompletedContent: string) => {
     try {
-      console.log(`👁️ DTA: ${approved ? 'Approving' : 'Rejecting'} notice ID: ${noticeId}`);
+      console.log(`✅ DTA: User completed template ID: ${templateId}`);
       
       await db.update(dmcaNotices)
         .set({
-          status: approved ? 'approved' : 'rejected',
+          body: userCompletedContent,
+          status: 'user_completed',
           updatedAt: new Date(),
         })
-        .where(eq(dmcaNotices.id, noticeId));
+        .where(eq(dmcaNotices.id, templateId));
       
-      console.log(`✅ DTA: Notice ${noticeId} ${approved ? 'approved' : 'rejected'} successfully`);
+      console.log(`✅ DTA: Template ${templateId} marked as user completed`);
       
       return {
-        noticeId,
-        status: approved ? 'approved' : 'rejected',
-        reviewedAt: new Date().toISOString(),
+        templateId,
+        status: 'user_completed',
+        completedAt: new Date().toISOString(),
+        disclaimer: "User has completed this template and assumes all legal responsibility for its content and submission."
       };
       
     } catch (error: any) {
-      console.error('❌ DTA review error:', error);
-      throw new Error(`DTA review failed: ${error.message}`);
+      console.error('❌ DTA user completion error:', error);
+      throw new Error(`DTA user completion failed: ${error.message}`);
     }
   }
 };

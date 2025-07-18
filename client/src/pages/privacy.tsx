@@ -248,7 +248,7 @@ export default function Privacy() {
                   <div className="space-y-1 text-gray-400 text-sm">
                     <p className="flex items-center space-x-2">
                       <Mail size={14} />
-                      <span>privacy@klinkylinks.com</span>
+                      <span>admin@klinkylinks.com</span>
                     </p>
                     <p>Response time: 48 hours</p>
                   </div>
@@ -259,7 +259,7 @@ export default function Privacy() {
                   <div className="space-y-1 text-gray-400 text-sm">
                     <p className="flex items-center space-x-2">
                       <Mail size={14} />
-                      <span>dpo@klinkylinks.com</span>
+                      <span>admin@klinkylinks.com</span>
                     </p>
                     <p>For formal privacy requests</p>
                   </div>

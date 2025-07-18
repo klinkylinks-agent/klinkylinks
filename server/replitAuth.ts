@@ -57,12 +57,17 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
+  // Check if user should be admin (replace with your actual admin user ID)
+  const adminUserId = "YOUR_REPLIT_USER_ID"; // Replace with your actual Replit user ID
+  const userRole = claims["sub"] === adminUserId ? "super_admin" : "user";
+  
   await storage.upsertUser({
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
+    role: userRole,
   });
 }
 

@@ -6,6 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { TechOnlyDisclaimer } from "@/components/legal/TechOnlyDisclaimer";
+import UserResponsibilityModal from "@/components/legal/UserResponsibilityModal";
 import { 
   Search, 
   Eye, 
@@ -38,20 +44,54 @@ interface ContentItem {
   platforms: string[];
   lastScanned: string;
   status: 'active' | 'paused';
-  violations: number;
+  similarityMatches: number;
 }
 
 export default function Monitoring() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [platforms, setPlatforms] = useState<MonitoringPlatform[]>([
+  
+  // Fetch user's content items
+  const { data: contentItems, isLoading: contentLoading } = useQuery({
+    queryKey: ["/api/content"],
+    enabled: !!user,
+    retry: (failureCount, error) => {
+      if (isUnauthorizedError(error)) return false;
+      return failureCount < 3;
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to continue",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+      }
+    },
+  });
+
+  // Fetch monitoring platform status
+  const { data: platformData, isLoading: platformLoading } = useQuery({
+    queryKey: ["/api/monitoring/status"],
+    enabled: !!user,
+    retry: (failureCount, error) => {
+      if (isUnauthorizedError(error)) return false;
+      return failureCount < 3;
+    },
+  });
+
+  // Default platform data with realistic scheduling
+  const defaultPlatforms: MonitoringPlatform[] = [
     {
       id: 'google_images',
       name: 'Google™ Images',
       icon: '🔍',
       status: 'active',
-      lastScan: '2 minutes ago',
-      itemsFound: 1247,
+      lastScan: '14 hours ago',
+      itemsFound: 0,
       enabled: true,
     },
     {
@@ -59,8 +99,8 @@ export default function Monitoring() {
       name: 'Google™ Videos',
       icon: '🎥',
       status: 'active',
-      lastScan: '5 minutes ago',
-      itemsFound: 892,
+      lastScan: '18 hours ago',
+      itemsFound: 0,
       enabled: true,
     },
     {
@@ -68,8 +108,8 @@ export default function Monitoring() {
       name: 'Bing® Images',
       icon: '🔎',
       status: 'active',
-      lastScan: '3 minutes ago',
-      itemsFound: 634,
+      lastScan: '22 hours ago',
+      itemsFound: 0,
       enabled: true,
     },
     {
@@ -77,52 +117,46 @@ export default function Monitoring() {
       name: 'Bing® Videos',
       icon: '📹',
       status: 'active',
-      lastScan: '7 minutes ago',
-      itemsFound: 445,
+      lastScan: '16 hours ago',
+      itemsFound: 0,
       enabled: true,
     },
-  ]);
+  ];
 
-  const [contentItems] = useState<ContentItem[]>([
-    {
-      id: 1,
-      title: "Professional Photography Portfolio",
-      type: 'image',
-      thumbnail: 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=64&h=64&fit=crop',
-      platforms: ['Google™ Images', 'Bing® Images'],
-      lastScanned: '1 minute ago',
-      status: 'active',
-      violations: 3,
+  const platforms = platformData || defaultPlatforms;
+
+  // Mutation for scheduling scans
+  const scheduleScanMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/monitoring/schedule-scan", {});
     },
-    {
-      id: 2,
-      title: "Creative Video Content",
-      type: 'video',
-      thumbnail: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=64&h=64&fit=crop',
-      platforms: ['Google™ Videos', 'Bing® Videos'],
-      lastScanned: '3 minutes ago',
-      status: 'active',
-      violations: 1,
+    onSuccess: () => {
+      toast({
+        title: "Scan Scheduled",
+        description: "Your scan has been added to the queue. Reports will be generated within 24 hours to avoid detection.",
+        variant: "default",
+      });
+      queryClient.invalidateQueries(["/api/monitoring/status"]);
     },
-    {
-      id: 3,
-      title: "Digital Art Collection",
-      type: 'image',
-      thumbnail: 'https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=64&h=64&fit=crop',
-      platforms: ['Google™ Images'],
-      lastScanned: '5 minutes ago',
-      status: 'active',
-      violations: 7,
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to continue",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+      } else {
+        toast({
+          title: "Scan Failed",
+          description: "Unable to schedule scan. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
-  ]);
+  });
 
   const togglePlatform = (platformId: string) => {
-    setPlatforms(prev => prev.map(platform => 
-      platform.id === platformId 
-        ? { ...platform, enabled: !platform.enabled, status: platform.enabled ? 'paused' : 'active' }
-        : platform
-    ));
-    
     const platform = platforms.find(p => p.id === platformId);
     toast({
       title: platform?.enabled ? "Platform Paused" : "Platform Activated",
@@ -131,10 +165,16 @@ export default function Monitoring() {
   };
 
   const runManualScan = () => {
-    toast({
-      title: "Manual Scan Started",
-      description: "Scanning all platforms for new violations. This may take a few minutes.",
-    });
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to schedule scans",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    scheduleScanMutation.mutate();
   };
 
   const getStatusBadge = (status: string) => {
@@ -170,23 +210,38 @@ export default function Monitoring() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
           <div>
             <h1 className="text-4xl font-bold mb-2">
-              <span className="text-gradient">Monitoring Dashboard</span>
+              <span className="text-gradient">Similarity Monitoring Dashboard</span>
             </h1>
             <p className="text-gray-400 text-lg">
-              Real-time content protection across all major search platforms
+              Scheduled content similarity detection with 24-hour reporting to avoid bot detection
             </p>
           </div>
           <div className="flex space-x-4 mt-4 lg:mt-0">
-            <Button onClick={runManualScan} className="btn-electric">
-              <RefreshCw size={20} className="mr-2" />
-              Manual Scan
-            </Button>
+            <UserResponsibilityModal
+              title="Schedule Similarity Scan"
+              description="This will add your content to the scanning queue. Reports will be generated within 24 hours to avoid search engine detection. You must evaluate all matches and make legal determinations yourself."
+              requiresTyping={true}
+              confirmationText="I understand"
+              onAccept={runManualScan}
+            >
+              <Button className="btn-electric">
+                <RefreshCw size={20} className="mr-2" />
+                Schedule Scan
+              </Button>
+            </UserResponsibilityModal>
             <Button className="btn-hot">
               <Settings size={20} className="mr-2" />
               Configure
             </Button>
           </div>
         </div>
+
+        {/* Technology-Only Disclaimer */}
+        <TechOnlyDisclaimer 
+          context="monitoring" 
+          prominent={true}
+          showExternalLinks={true}
+        />
 
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -275,7 +330,7 @@ export default function Monitoring() {
                 <h2 className="text-xl font-bold text-white">Protected Content</h2>
                 <div className="flex items-center space-x-2 text-sm text-gray-400">
                   <Clock size={16} />
-                  <span>Last updated: 1 minute ago</span>
+                  <span>Last updated: 8 hours ago</span>
                 </div>
               </div>
 
@@ -314,26 +369,32 @@ export default function Monitoring() {
                       </div>
 
                       <div className="flex items-center space-x-4">
-                        {/* Violation Count */}
-                        {item.violations > 0 ? (
+                        {/* Similarity Match Count */}
+                        {item.similarityMatches > 0 ? (
                           <div className="flex items-center space-x-2">
-                            <AlertTriangle className="text-hot-pink" size={16} />
-                            <span className="text-hot-pink font-semibold">
-                              {item.violations} violation{item.violations !== 1 ? 's' : ''}
+                            <AlertTriangle className="text-blue-400" size={16} />
+                            <span className="text-blue-400 font-semibold">
+                              {item.similarityMatches} match{item.similarityMatches !== 1 ? 'es' : ''}
                             </span>
                           </div>
                         ) : (
                           <div className="flex items-center space-x-2">
                             <CheckCircle className="text-neon-green" size={16} />
-                            <span className="text-neon-green">Protected</span>
+                            <span className="text-neon-green">No matches</span>
                           </div>
                         )}
 
                         {/* Action Buttons */}
                         <div className="flex items-center space-x-2">
-                          <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                            <Eye size={16} />
-                          </Button>
+                          <UserResponsibilityModal
+                            title="View Similarity Matches"
+                            description="This will show technical similarity matches. You must evaluate each match and determine if legal action is warranted."
+                            onAccept={() => console.log('View matches for', item.id)}
+                          >
+                            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                              <Eye size={16} />
+                            </Button>
+                          </UserResponsibilityModal>
                           <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
                             {item.status === 'active' ? <Pause size={16} /> : <Play size={16} />}
                           </Button>
@@ -354,7 +415,7 @@ export default function Monitoring() {
                     No Content Being Monitored
                   </h3>
                   <p className="text-gray-400 mb-4">
-                    Upload your first content to start monitoring for violations.
+                    Upload your first content to start monitoring for similarity matches.
                   </p>
                   <Button className="btn-electric">
                     Upload Content

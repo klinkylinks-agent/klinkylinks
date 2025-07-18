@@ -1,13 +1,16 @@
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Search, Zap, CheckCircle, Users, Globe } from "lucide-react";
 
 export default function Landing() {
+  const [, navigate] = useLocation();
+  
   const features = [
     {
       icon: <Search className="w-8 h-8 text-blue-500" />,
-      title: "AI-Powered Monitoring",
-      description: "Advanced algorithms scan the web 24/7 to detect unauthorized use of your content across multiple platforms."
+      title: "AI-Powered Image & Video Monitoring",
+      description: "Advanced algorithms scan the web 24/7 to detect unauthorized use of your images and videos across multiple platforms."
     },
     {
       icon: <Shield className="w-8 h-8 text-blue-500" />,
@@ -32,12 +35,12 @@ export default function Landing() {
     {
       icon: <Globe className="w-8 h-8 text-blue-500" />,
       title: "Multi-Platform Coverage",
-      description: "Monitor Google Images, Bing, social media, and other platforms from a single dashboard."
+      description: "Monitor Google Images, Google Videos, Bing Images, Bing Videos, and social media from a single dashboard."
     }
   ];
 
   const handleLogin = () => {
-    window.location.href = "/api/login";
+    navigate("/auth");
   };
 
   return (
@@ -93,7 +96,7 @@ export default function Landing() {
           
           <div className="relative mb-12">
             <p className="text-xl md:text-2xl text-gray-200 mb-10 max-w-4xl mx-auto leading-relaxed font-light">
-              The ultimate content protection platform for creators. AI-powered monitoring, 
+              The ultimate content protection platform for creators. AI-powered image and video monitoring, 
               automated DMCA takedowns, and real-time infringement detection across the web.
             </p>
           </div>
@@ -104,12 +107,13 @@ export default function Landing() {
               size="lg" 
               className="group relative bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 hover:from-purple-700 hover:via-pink-600 hover:to-purple-700 text-lg px-12 py-6 rounded-3xl shadow-2xl hover:shadow-purple-500/30 transition-all duration-500 transform hover:-translate-y-2 hover:scale-105 font-bold"
             >
-              <span className="relative z-10">Get Started Free</span>
+              <span className="relative z-10">Get Started</span>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-400/50 via-pink-400/50 to-purple-400/50 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             </Button>
             <Button 
               variant="outline" 
               size="lg" 
+              onClick={() => window.location.href = "/demo"}
               className="morphing-card border-2 border-purple-400/30 text-purple-300 hover:text-pink-300 text-lg px-12 py-6 rounded-3xl transition-all duration-500 transform hover:-translate-y-2 hover:scale-105 font-semibold"
             >
               View Demo
@@ -120,8 +124,8 @@ export default function Landing() {
 
       {/* Features Grid */}
       <section className="container mx-auto px-4 py-20">
-        <div className="text-center mb-20">
-          <h2 className="text-5xl font-black mb-6 gradient-text">
+        <div className="text-center mb-20 px-4">
+          <h2 className="text-4xl md:text-5xl font-black mb-8 gradient-text max-w-5xl mx-auto leading-tight py-2">
             Everything You Need to Protect Your Work
           </h2>
           <p className="text-gray-300 text-xl max-w-3xl mx-auto font-light leading-relaxed">
@@ -156,7 +160,7 @@ export default function Landing() {
       <section className="relative z-10 container mx-auto px-4 py-20">
         <div className="morphing-card p-16 text-center floating">
           <div className="relative z-10">
-            <h2 className="text-5xl md:text-6xl font-black mb-8 gradient-text">
+            <h2 className="text-5xl md:text-6xl font-black mb-8 gradient-text leading-tight">
               Ready to Protect Your Content?
             </h2>
             <p className="text-gray-200 text-xl md:text-2xl mb-12 max-w-4xl mx-auto leading-relaxed font-light">
@@ -167,12 +171,9 @@ export default function Landing() {
               size="lg" 
               className="group relative bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 hover:from-purple-700 hover:via-pink-600 hover:to-purple-700 text-xl px-16 py-8 rounded-3xl shadow-2xl hover:shadow-purple-500/40 transition-all duration-500 transform hover:-translate-y-3 hover:scale-110 mb-8 font-bold"
             >
-              <span className="relative z-10">Start Free Trial</span>
+              <span className="relative z-10">Start Now</span>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-400/60 via-pink-400/60 to-purple-400/60 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             </Button>
-            <p className="text-gray-400 text-lg font-light">
-              No credit card required • 14-day free trial • Cancel anytime
-            </p>
           </div>
         </div>
       </section>

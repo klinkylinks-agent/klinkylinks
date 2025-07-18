@@ -91,7 +91,7 @@ export default function Legal() {
                 <p className="text-white font-medium">KlinkyLinks Legal Department</p>
                 <p className="text-gray-400 text-sm">DMCA Designated Agent</p>
                 <p className="text-gray-400 text-sm mt-2">
-                  Email: dmca@klinkylinks.com<br />
+                  Email: admin@klinkylinks.com<br />
                   Address: [Your Business Address]<br />
                   Phone: [Your Business Phone]
                 </p>

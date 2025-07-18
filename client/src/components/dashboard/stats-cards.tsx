@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Shield, AlertTriangle, Gavel, CheckCircle, TrendingUp, TrendingDown } from "lucide-react";
-import { useDashboardStats } from "@/hooks/use-dashboard-data";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { useToast } from "@/hooks/use-toast";
 
 interface StatCardProps {
   title: string;
@@ -55,9 +58,29 @@ function StatCard({ title, value, change, changeType, icon, color }: StatCardPro
 }
 
 export default function StatsCards() {
-  const { data: stats, isLoading } = useDashboardStats(1); // Mock user ID
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
+  const { data: stats, isLoading, error } = useQuery({
+    queryKey: ["/api/dashboard/stats"],
+    enabled: !!user,
+    retry: (failureCount, error) => {
+      if (isUnauthorizedError(error)) return false;
+      return failureCount < 3;
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to continue",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+      }
+    },
+  });
 
-  if (isLoading) {
+  if (isLoading || !user) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {[...Array(4)].map((_, i) => (
@@ -71,6 +94,22 @@ export default function StatsCards() {
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="col-span-full">
+          <div className="gradient-border">
+            <div className="gradient-border-inner p-6 text-center">
+              <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+              <p className="text-red-500">Failed to load dashboard statistics</p>
+              <p className="text-gray-400 text-sm mt-1">Please check your connection and try again</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

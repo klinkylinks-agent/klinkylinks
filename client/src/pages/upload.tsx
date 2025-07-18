@@ -7,6 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import { 
   Upload as UploadIcon, 
   File, 
@@ -31,8 +35,60 @@ export default function Upload() {
   const [description, setDescription] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Mutation for uploading files
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', title);
+      formData.append('description', description);
+      
+      return await apiRequest("POST", "/api/content/upload", formData);
+    },
+    onSuccess: (data, file) => {
+      toast({
+        title: "Upload Successful",
+        description: `${file.name} has been uploaded and is now being processed for monitoring.`,
+      });
+      queryClient.invalidateQueries(["/api/content"]);
+      setFiles(prev => prev.map(f => 
+        f.file === file ? { ...f, status: 'completed' as const, progress: 100 } : f
+      ));
+    },
+    onError: (error, file) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to continue",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.href = "/api/login", 1000);
+      } else {
+        toast({
+          title: "Upload Failed",
+          description: `Failed to upload ${file.name}. Please try again.`,
+          variant: "destructive",
+        });
+        setFiles(prev => prev.map(f => 
+          f.file === file ? { ...f, status: 'error' as const } : f
+        ));
+      }
+    },
+  });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to upload files",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const newFiles = acceptedFiles.map(file => ({
       file,
       preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
@@ -43,11 +99,11 @@ export default function Upload() {
 
     setFiles(prev => [...prev, ...newFiles]);
     
-    // Simulate upload progress
-    newFiles.forEach((uploadFile, index) => {
-      simulateUpload(uploadFile.id, index * 500);
+    // Start actual upload for each file
+    newFiles.forEach((uploadFile) => {
+      uploadMutation.mutate(uploadFile.file);
     });
-  }, []);
+  }, [user, uploadMutation, toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -57,23 +113,6 @@ export default function Upload() {
     },
     maxSize: 100 * 1024 * 1024, // 100MB
   });
-
-  const simulateUpload = (fileId: string, delay: number) => {
-    setTimeout(() => {
-      const interval = setInterval(() => {
-        setFiles(prev => prev.map(file => {
-          if (file.id === fileId) {
-            if (file.progress >= 100) {
-              clearInterval(interval);
-              return { ...file, status: 'completed' as const };
-            }
-            return { ...file, progress: file.progress + 10 };
-          }
-          return file;
-        }));
-      }, 200);
-    }, delay);
-  };
 
   const removeFile = (fileId: string) => {
     setFiles(prev => {

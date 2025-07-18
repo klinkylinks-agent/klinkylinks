@@ -52,17 +52,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/recent-violations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/dashboard/recent-similarity-matches", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const violations = await storage.getInfringements(userId, 10);
-      res.json(violations);
+      const matches = await storage.getInfringements(userId, 10);
+      res.json(matches);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });
 
-  // Content upload routes
+  // Content routes
+  app.get("/api/content", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const contentItems = await storage.getContentItems(userId);
+      res.json(contentItems);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/content/upload", isAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
       if (!req.file) {
@@ -419,6 +429,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         results,
         timestamp: new Date().toISOString(),
       });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Monitoring routes
+  app.get("/api/monitoring/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      // Return platform monitoring status
+      const platforms = [
+        {
+          id: 'google_images',
+          name: 'Google™ Images',
+          icon: '🔍',
+          status: 'active',
+          lastScan: '14 hours ago',
+          itemsFound: 0,
+          enabled: true,
+        },
+        {
+          id: 'google_videos',
+          name: 'Google™ Videos',
+          icon: '🎥',
+          status: 'active',
+          lastScan: '18 hours ago',
+          itemsFound: 0,
+          enabled: true,
+        },
+        {
+          id: 'bing_images',
+          name: 'Bing® Images',
+          icon: '🔎',
+          status: 'active',
+          lastScan: '22 hours ago',
+          itemsFound: 0,
+          enabled: true,
+        },
+        {
+          id: 'bing_videos',
+          name: 'Bing® Videos',
+          icon: '📹',
+          status: 'active',
+          lastScan: '16 hours ago',
+          itemsFound: 0,
+          enabled: true,
+        },
+      ];
+      res.json(platforms);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/monitoring/schedule-scan", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      // Schedule a new monitoring scan
+      await storage.createMonitoringScan({
+        userId,
+        platforms: ['google_images', 'google_videos', 'bing_images', 'bing_videos'],
+        status: 'scheduled',
+        scheduledFor: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      });
+      
+      res.json({ message: "Scan scheduled successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

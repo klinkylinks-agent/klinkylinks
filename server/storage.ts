@@ -56,6 +56,19 @@ export interface IStorage {
     dmcaSent: number;
     successRate: number;
   }>;
+
+  // Admin operations
+  getAllUsers(): Promise<User[]>;
+  updateUserRole(userId: string, role: string): Promise<User>;
+  getAdminStats(): Promise<{
+    totalUsers: number;
+    newUsersToday: number;
+    totalContent: number;
+    newContentToday: number;
+    totalDmca: number;
+    newDmcaToday: number;
+    monthlyRevenue: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
