@@ -1,11 +1,35 @@
 import express from "express";
 import { setupAuth } from "./auth";
-import { registerRoutes } from "./routes";
+// If you have other middleware or routers, import them here
+// import { myRoutes } from "./routes";
 
 const app = express();
-const port = +(process.env.PORT || 4000);
 
+// Authentication routes (register, login, logout, user info)
 setupAuth(app);
-registerRoutes(app);
 
-app.listen(port, () => console.log(\`Server listening on http://localhost:\${port}\`));
+// Example: API route for a protected resource
+app.get("/api/protected", (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  res.json({ message: "This is a protected route." });
+});
+
+// Add other API routes here
+// app.use("/api/items", itemsRouter);
+
+// Catch-all for unknown routes (optional)
+app.use((req, res) => {
+  res.status(404).json({ message: "Not Found" });
+});
+
+// Error handling middleware (optional, but good practice)
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ message: "Server error", error: err.message });
+});
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log("Server running!");
+});
