@@ -180,4 +180,10 @@ export function setupAuth(app: Express) {
     console.error("[AUTH] Setup error, falling back:", error);
     setupFallbackAuth(app);
   }
+export function isAuthenticated(req: any, res: any, next: any) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ message: "Unauthorized" });
+  }
 }
