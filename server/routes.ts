@@ -70,7 +70,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.user.id;
-      const { title, description } = req.body;
+      const { title, description, searchUsernames } = req.body;
+      
+      // Parse searchUsernames if provided
+      let parsedUsernames: string[] = [];
+      if (searchUsernames) {
+        try {
+          parsedUsernames = JSON.parse(searchUsernames).filter((u: string) => u.trim());
+        } catch (e) {
+          console.warn("Failed to parse searchUsernames:", e);
+        }
+      }
       
       // Analyze content with OpenAI
       const base64Data = req.file.buffer.toString('base64');
@@ -90,11 +100,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         s3Key,
         s3Url,
         fingerprint,
+        searchUsernames: parsedUsernames, // Store username search hints
         metadata: { 
           title: title || analysis.suggestedTitle, 
           description: description || analysis.description,
           tags: analysis.tags,
-          aiAnalysis: analysis
+          aiAnalysis: analysis,
+          searchEnhancement: parsedUsernames.length > 0 ? `Enhanced with ${parsedUsernames.length} username(s): ${parsedUsernames.join(', ')}` : 'Standard monitoring'
         },
       });
 

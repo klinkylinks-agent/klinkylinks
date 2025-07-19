@@ -43,6 +43,7 @@ export const contentItems = pgTable("content_items", {
   s3Url: text("s3_url").notNull(),
   fingerprint: text("fingerprint"), // perceptual hash
   metadata: jsonb("metadata"), // title, description, tags, etc.
+  searchUsernames: text("search_usernames").array(), // up to 3 usernames for guided search
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
