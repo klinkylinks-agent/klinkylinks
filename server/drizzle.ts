@@ -1,4 +1,5 @@
-import { Migration } from "drizzle-orm";
+// File: server/drizzle.ts
 
-// Stub migrations array; replace with actual migration definitions before prod
-export const migrations: Migration[] = [];
+// Empty migrations array for Drizzle.
+// Add your real migration definitions here as you evolve your schema.
+export const migrations = [];
