@@ -5,17 +5,26 @@ import { z } from "zod";
 import { insertContentItemSchema } from "@shared/schema";
 import Stripe from "stripe";
 import multer from "multer";
-import { generateDmcaNotice, analyzeContent, generateFingerprint } from "./services/openai";
-import { startMonitoring } from "./services/monitoring";
+import rateLimit from "express-rate-limit";
 import { setupAuth, isAuthenticated } from "./auth";
 import { setupFallbackAuth } from "./fallback-auth";
+import { setupStripeWebhooks, webhookRateLimit } from "./stripe/webhook";
+import { analyzeContent, findSimilarContent, generateDMCANotice } from "./ai/scanner";
+import { startMonitoring } from "./services/monitoring";
+import { config } from "./config";
+import { testDatabaseConnection, initializeTables } from "./db";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+const stripe = new Stripe(config.STRIPE_SECRET_KEY, {
   apiVersion: "2023-10-16",
+});
+
+// API rate limiting
+const apiRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many API requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // Configure multer for file uploads
@@ -27,6 +36,17 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize database and check connection
+  try {
+    await testDatabaseConnection();
+    await initializeTables();
+  } catch (error) {
+    console.error("[ROUTES] Database initialization failed:", error);
+  }
+
+  // Set up Stripe webhooks (before auth to avoid middleware conflicts)
+  setupStripeWebhooks(app);
+
   // Auth middleware with fallback system
   try {
     setupAuth(app);
@@ -35,6 +55,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("[ROUTES] Primary auth failed, loading fallback:", error);
     setupFallbackAuth(app);
   }
+
+  // Apply rate limiting to all API routes
+  app.use('/api/', apiRateLimit);
 
   // Auth routes - Note: /api/register, /api/login, /api/logout, /api/user are now handled in auth.ts
 
