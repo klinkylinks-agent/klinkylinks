@@ -18,103 +18,58 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupFallbackAuth(app: Express) {
-  console.log("[FALLBACK] Setting up emergency authentication system");
-  
-  // Simple in-memory user storage for emergency use
-  const users = new Map();
-  
+  console.log("[FALLBACK] Emergency auth enabled");
+  const users = new Map<string, any>();
+
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, password, firstName, lastName, confirmPassword } = req.body; // Added confirmPassword for consistency with primary auth
-      
-      console.log("[FALLBACK REGISTER] Request details:", { email, firstName, lastName, hasPassword: !!password, hasConfirmPassword: !!confirmPassword });
-      console.log("[FALLBACK REGISTER] Using fallback auth mode");
-      
+      const { email, password, confirmPassword, firstName, lastName } = req.body;
       if (!email || !password || !confirmPassword) {
         return res.status(400).json({ message: "Email, password, and confirm password are required" });
       }
-      
       if (password !== confirmPassword) {
         return res.status(400).json({ message: "Passwords do not match" });
       }
-      
       if (users.has(email)) {
-        return res.status(400).json({ message: "User already exists with this email" });
+        return res.status(400).json({ message: "Email already registered" });
       }
-      
-      const userId = `user_${Date.now()}`;
-      const hashedPassword = await hashPassword(password);
-      
-      const user = {
-        id: userId,
-        email,
-        firstName: firstName || null,
-        lastName: lastName || null,
-        password: hashedPassword,
-        role: "user",
-        subscriptionStatus: "free",
-        subscriptionTier: "free"
-      };
-      
+      const id = `user_${Date.now()}`;
+      const hashed = await hashPassword(password);
+      const user = { id, email, firstName: firstName || null, lastName: lastName || null, password: hashed, role: "user", subscriptionStatus: "free", subscriptionTier: "free" };
       users.set(email, user);
-      
-      console.log("[FALLBACK REGISTER] User created successfully:", { userId: user.id });
-      
-      res.status(201).json({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        subscriptionStatus: user.subscriptionStatus,
-        subscriptionTier: user.subscriptionTier
-      });
-    } catch (error) {
+      res.status(201).json(user);
+    } catch (error: any) {
       console.error("[FALLBACK REGISTER] Error:", error);
-      res.status(500).json({ message: "Registration failed. Please try again." });
+      res.status(500).json({ message: error.message, stack: error.stack });
     }
   });
-  
+
   app.post("/api/login", async (req, res) => {
     try {
       const { email, password } = req.body;
-      
-      console.log("[FALLBACK LOGIN] Request details:", { email, hasPassword: !!password });
-      
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
       }
-      
       const user = users.get(email);
       if (!user) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
-      
-      const isValid = await comparePasswords(password, user.password);
-      if (!isValid) {
+      const valid = await comparePasswords(password, user.password);
+      if (!valid) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
-      
-      res.json({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        subscriptionStatus: user.subscriptionStatus,
-        subscriptionTier: user.subscriptionTier
-      });
-    } catch (error) {
+      res.json(user);
+    } catch (error: any) {
       console.error("[FALLBACK LOGIN] Error:", error);
-      res.status(500).json({ message: "Login failed. Please try again." });
+      res.status(500).json({ message: error.message, stack: error.stack });
     }
   });
-  
-  app.get("/api/user", (req, res) => {
+
+  app.get("/api/user", (_req, res) => {
     res.status(401).json({ message: "Not authenticated - fallback mode" });
   });
-  
-  app.post("/api/logout", (req, res) => {
-    res.json({ message: "Logged out successfully" });
+
+  app.post("/api/logout", (_req, res) => {
+    res.json({ message: "Logged out" });
   });
 }
