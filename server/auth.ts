@@ -1,6 +1,8 @@
+// server/auth.ts
+
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -8,12 +10,6 @@ import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { setupFallbackAuth } from "./fallback-auth";
-
-declare global {
-  namespace Express {
-    interface User extends SelectUser {}
-  }
-}
 
 const scryptAsync = promisify(scrypt);
 
@@ -30,14 +26,17 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-export function setupAuth(app: Express) {
+declare module "express" {
+  interface User extends SelectUser {}
+}
+
+export function setupAuth(app: express.Express) {
   try {
     if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET) {
-      console.error("[AUTH] Missing DATABASE_URL or SESSION_SECRET – falling back");
+      console.error("[AUTH] Missing env vars, using fallback auth");
       return setupFallbackAuth(app);
     }
 
-    // Configure session store
     let store: session.Store;
     try {
       const PgStore = connectPg(session);
@@ -47,7 +46,7 @@ export function setupAuth(app: Express) {
         createTableIfMissing: true,
       });
     } catch (err) {
-      console.error("[AUTH] Postgres store failed, using in-memory:", err);
+      console.error("[AUTH] Postgres store failed, using memory store:", err);
       const MemoryStore = require("memorystore")(session);
       store = new MemoryStore({ checkPeriod: 86400000 });
     }
@@ -55,7 +54,7 @@ export function setupAuth(app: Express) {
     app.set("trust proxy", 1);
     app.use(
       session({
-        secret: process.env.SESSION_SECRET,
+        secret: process.env.SESSION_SECRET!,
         resave: false,
         saveUninitialized: false,
         store,
@@ -86,7 +85,7 @@ export function setupAuth(app: Express) {
       })
     );
 
-    passport.serializeUser((user, done) => done(null, user.id));
+    passport.serializeUser((user, done) => done(null, (user as SelectUser).id));
     passport.deserializeUser(async (id: string, done) => {
       try {
         const user = await storage.getUser(id);
@@ -96,14 +95,12 @@ export function setupAuth(app: Express) {
       }
     });
 
-    // Registration endpoint
-    app.post("/api/register", async (req, res, next) => {
+    // Registration
+    app.post("/api/register", async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { email, password, confirmPassword, firstName, lastName } = req.body;
         if (!email || !password || !confirmPassword) {
-          return res
-            .status(400)
-            .json({ message: "Email, password & confirmPassword required" });
+          return res.status(400).json({ message: "Email, password & confirmPassword required" });
         }
         if (password !== confirmPassword) {
           return res.status(400).json({ message: "Passwords do not match" });
@@ -116,15 +113,14 @@ export function setupAuth(app: Express) {
         const newUser = await storage.createUser({
           email,
           password: hashed,
-          firstName: firstName || null,
-          lastName: lastName || null,
+          firstName: firstName ?? null,
+          lastName: lastName ?? null,
           role: "user",
           subscriptionStatus: "free",
           subscriptionTier: "free",
         });
 
-        // Automatically log in the new user
-        req.logIn(newUser as Express.User, (err) => {
+        req.logIn(newUser, (err) => {
           if (err) return next(err);
           res.status(201).json(newUser);
         });
@@ -134,16 +130,12 @@ export function setupAuth(app: Express) {
       }
     });
   } catch (err) {
-    console.error("[AUTH] Setup failed – falling back:", err);
+    console.error("[AUTH] Setup error, falling back:", err);
     setupFallbackAuth(app);
   }
 }
 
-export function isAuthenticated(
-  req: Express.Request,
-  res: Express.Response,
-  next: Express.NextFunction
-) {
+export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) return next();
   res.status(401).json({ message: "Unauthorized" });
 }
