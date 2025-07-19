@@ -1,3 +1,5 @@
+// server/storage.ts
+
 import crypto from "crypto";
 import { User as SelectUser } from "@shared/schema";
 
@@ -5,7 +7,7 @@ export interface DashboardStats {
   totalContent: number;
 }
 
-// We’ll treat SelectUser as our in-memory user shape:
+// We'll treat SelectUser as our in‐memory user shape:
 export type UserRecord = SelectUser;
 
 const users = new Map<string, UserRecord>();
@@ -17,13 +19,32 @@ export const storage = {
 
   async createUser(data: Omit<UserRecord, "id">): Promise<UserRecord> {
     const id = crypto.randomUUID();
-    const u: UserRecord = { id, ...data };
+    const now = new Date();
+    // Supply all required SelectUser fields with sensible defaults:
+    const u: UserRecord = {
+      id,
+      email: data.email,
+      password: data.password,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      profileImageUrl: null,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      role: data.role,
+      subscriptionStatus: data.subscriptionStatus,
+      subscriptionTier: data.subscriptionTier,
+      createdAt: now,
+      updatedAt: now,
+    };
     users.set(u.email.toLowerCase(), u);
     return u;
   },
 
   async getUser(id: string): Promise<UserRecord | null> {
-    return Array.from(users.values()).find((u) => u.id === id) || null;
+    for (const u of users.values()) {
+      if (u.id === id) return u;
+    }
+    return null;
   },
 
   async getDashboardStats(): Promise<DashboardStats> {
