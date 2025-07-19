@@ -32,23 +32,22 @@ async function comparePasswords(supplied: string, stored: string) {
 
 export function setupAuth(app: Express) {
   try {
-    console.log("[AUTH] Setting up authentication...");
     if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET) {
-      console.error("[AUTH] Missing env vars, using fallback auth");
+      console.error("[AUTH] Missing DATABASE_URL or SESSION_SECRET – falling back");
       return setupFallbackAuth(app);
     }
 
+    // Configure session store
     let store: session.Store;
     try {
       const PgStore = connectPg(session);
       store = new PgStore({
         conString: process.env.DATABASE_URL,
-        createTableIfMissing: true,
         tableName: "sessions",
+        createTableIfMissing: true,
       });
-      console.log("[AUTH] PostgreSQL session store configured");
     } catch (err) {
-      console.error("[AUTH] Postgres store failed, using memory store:", err);
+      console.error("[AUTH] Postgres store failed, using in-memory:", err);
       const MemoryStore = require("memorystore")(session);
       store = new MemoryStore({ checkPeriod: 86400000 });
     }
@@ -56,7 +55,7 @@ export function setupAuth(app: Express) {
     app.set("trust proxy", 1);
     app.use(
       session({
-        secret: process.env.SESSION_SECRET!,
+        secret: process.env.SESSION_SECRET,
         resave: false,
         saveUninitialized: false,
         store,
@@ -86,17 +85,18 @@ export function setupAuth(app: Express) {
         }
       })
     );
-    passport.serializeUser((u, d) => d(null, u.id));
-    passport.deserializeUser(async (id: string, d) => {
+
+    passport.serializeUser((user, done) => done(null, user.id));
+    passport.deserializeUser(async (id: string, done) => {
       try {
-        const u = await storage.getUser(id);
-        d(null, u);
+        const user = await storage.getUser(id);
+        done(null, user);
       } catch (e) {
-        d(e as Error);
+        done(e as Error);
       }
     });
 
-    // Registration
+    // Registration endpoint
     app.post("/api/register", async (req, res, next) => {
       try {
         const { email, password, confirmPassword, firstName, lastName } = req.body;
@@ -111,6 +111,7 @@ export function setupAuth(app: Express) {
         if (await storage.getUserByEmail(email)) {
           return res.status(400).json({ message: "Email already registered" });
         }
+
         const hashed = await hashPassword(password);
         const newUser = await storage.createUser({
           email,
@@ -121,7 +122,9 @@ export function setupAuth(app: Express) {
           subscriptionStatus: "free",
           subscriptionTier: "free",
         });
-        req.logIn(newUser, (err) => {
+
+        // Automatically log in the new user
+        req.logIn(newUser as Express.User, (err) => {
           if (err) return next(err);
           res.status(201).json(newUser);
         });
@@ -131,12 +134,16 @@ export function setupAuth(app: Express) {
       }
     });
   } catch (err) {
-    console.error("[AUTH] Setup failed, falling back:", err);
+    console.error("[AUTH] Setup failed – falling back:", err);
     setupFallbackAuth(app);
   }
 }
 
-export function isAuthenticated(req: any, res: any, next: any) {
+export function isAuthenticated(
+  req: Express.Request,
+  res: Express.Response,
+  next: Express.NextFunction
+) {
   if (req.isAuthenticated()) return next();
   res.status(401).json({ message: "Unauthorized" });
 }
