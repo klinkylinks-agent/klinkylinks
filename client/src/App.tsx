@@ -20,6 +20,7 @@ import Privacy from "@/pages/privacy";
 import Terms from "@/pages/terms";
 import RefundPolicyPage from "@/pages/refund-policy";
 import Demo from "@/pages/demo";
+import DMCATakedown from "@/pages/dmca-takedown";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
 import NotFound from "@/pages/not-found";
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/terms" component={Terms} />
       <Route path="/refund-policy" component={RefundPolicyPage} />
       <Route path="/demo" component={Demo} />
+      <Route path="/dmca-takedown" component={DMCATakedown} />
       <Route path="/auth" component={Auth} />
       
       {/* =========================== */}

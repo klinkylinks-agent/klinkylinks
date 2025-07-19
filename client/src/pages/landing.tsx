@@ -9,13 +9,13 @@ export default function Landing() {
   const features = [
     {
       icon: <Search className="w-8 h-8 text-blue-500" />,
-      title: "AI-Powered Image & Video Monitoring",
-      description: "Advanced algorithms scan the web 24/7 to detect unauthorized use of your images and videos across multiple platforms."
+      title: "DMCA Takedown Notice Generation",
+      description: "Automated DMCA takedown notices generated using AI for copyright infringement removal across Google, Bing, and social media platforms."
     },
     {
       icon: <Shield className="w-8 h-8 text-blue-500" />,
-      title: "Automated DMCA Generation",
-      description: "Legal-compliant takedown notices generated instantly using GPT-4, saving hours of manual work."
+      title: "Copyright Infringement Detection",
+      description: "AI-powered monitoring detects unauthorized use of your copyrighted content across multiple search engines and social platforms."
     },
     {
       icon: <Zap className="w-8 h-8 text-blue-500" />,
@@ -82,13 +82,13 @@ export default function Landing() {
           <div className="mb-10">
             <h1 className="text-6xl md:text-8xl font-black mb-8 leading-tight tracking-tight">
               <span className="gradient-text block mb-2">
-                Protect Your 
+                DMCA Takedown 
               </span>
               <span className="gradient-text block mb-2 text-7xl md:text-9xl">
-                Content
+                Service
               </span>
               <span className="gradient-text block">
-                Automatically
+                AI-Powered Protection
               </span>
             </h1>
             <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-pink-500 mx-auto rounded-full"></div>
@@ -96,8 +96,7 @@ export default function Landing() {
           
           <div className="relative mb-12">
             <p className="text-xl md:text-2xl text-gray-200 mb-10 max-w-4xl mx-auto leading-relaxed font-light">
-              The ultimate content protection platform for creators. AI-powered image and video monitoring, 
-              automated DMCA takedowns, and real-time infringement detection across the web.
+              Professional DMCA takedown service with automated copyright protection. Monitor your images and videos across Google, Bing, and social media with AI-powered infringement detection and legal notice generation.
             </p>
           </div>
           
