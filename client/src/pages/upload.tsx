@@ -33,6 +33,7 @@ export default function Upload() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [searchUsernames, setSearchUsernames] = useState<string[]>(["", "", ""]);
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -45,6 +46,7 @@ export default function Upload() {
       formData.append('file', file);
       formData.append('title', title);
       formData.append('description', description);
+      formData.append('searchUsernames', JSON.stringify(searchUsernames.filter(u => u.trim())));
       
       return await apiRequest("POST", "/api/content/upload", formData);
     },
@@ -149,6 +151,7 @@ export default function Upload() {
       setFiles([]);
       setTitle("");
       setDescription("");
+      setSearchUsernames(["", "", ""]);
     } catch (error) {
       toast({
         title: "Upload Failed",
@@ -331,6 +334,54 @@ export default function Upload() {
                 >
                   {isUploading ? 'Uploading...' : 'Start Protection'}
                 </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Username Search Enhancement */}
+          <Card className="gradient-border">
+            <div className="gradient-border-inner p-6">
+              <h3 className="text-xl font-bold gradient-text mb-2">
+                Search Enhancement
+              </h3>
+              <p className="text-gray-400 text-sm mb-4">
+                Add up to 3 usernames to help guide searches and improve detection accuracy
+              </p>
+              
+              <div className="space-y-3">
+                {searchUsernames.map((username, index) => (
+                  <div key={index} className="relative">
+                    <Label 
+                      htmlFor={`username-${index}`} 
+                      className="text-gray-300 text-sm font-medium block mb-1"
+                    >
+                      Username {index + 1} {index === 0 && <span className="text-electric-blue">(recommended)</span>}
+                    </Label>
+                    <div className="relative group">
+                      <Input
+                        id={`username-${index}`}
+                        type="text"
+                        value={username}
+                        onChange={(e) => {
+                          const newUsernames = [...searchUsernames];
+                          newUsernames[index] = e.target.value;
+                          setSearchUsernames(newUsernames);
+                        }}
+                        placeholder={`@username${index + 1}`}
+                        className="morphing-card bg-charcoal border-gray-600 text-white placeholder-gray-400 focus:border-electric-blue transition-all duration-300 group-hover:border-electric-blue/50"
+                        maxLength={50}
+                      />
+                      <div className="absolute inset-0 rounded-md bg-gradient-to-r from-electric-blue/10 to-hot-pink/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-4 p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
+                <p className="text-electric-blue text-xs leading-relaxed">
+                  <strong>Pro Tip:</strong> Add usernames where your content might appear to enhance search accuracy. 
+                  Our AI will use these to refine monitoring across Google Images, Videos, and Bing.
+                </p>
               </div>
             </div>
           </Card>
