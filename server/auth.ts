@@ -92,27 +92,39 @@ export function setupAuth(app: Express) {
   // Registration endpoint
   app.post("/api/register", async (req, res, next) => {
     try {
-      console.log("[REGISTER] incoming request body:", req.body);
+      console.log("[REGISTER] Starting registration process");
+      console.log("[REGISTER] Environment check - DATABASE_URL exists:", !!process.env.DATABASE_URL);
+      console.log("[REGISTER] Request body keys:", Object.keys(req.body || {}));
       
-      const { email, password, firstName, lastName } = req.body;
+      const { email, password, firstName, lastName } = req.body || {};
       
       if (!email || !password) {
-        console.log("[REGISTER] validation failed: missing email or password");
+        console.log("[REGISTER] Validation failed - email:", !!email, "password:", !!password);
         return res.status(400).json({ message: "Email and password are required" });
       }
 
-      console.log("[REGISTER] checking for existing user:", email);
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        console.log("[REGISTER] user already exists:", email);
-        return res.status(400).json({ message: "User already exists with this email" });
+      console.log("[REGISTER] Checking database connection...");
+      
+      // Test database connection first
+      try {
+        console.log("[REGISTER] Testing storage connection...");
+        const existingUser = await storage.getUserByEmail(email);
+        console.log("[REGISTER] Database query successful, existing user:", !!existingUser);
+        
+        if (existingUser) {
+          console.log("[REGISTER] User already exists:", email);
+          return res.status(400).json({ message: "User already exists with this email" });
+        }
+      } catch (dbError) {
+        console.error("[REGISTER] Database connection failed:", dbError);
+        return res.status(500).json({ message: "Database connection failed. Please check environment variables." });
       }
 
-      console.log("[REGISTER] hashing password for:", email);
+      console.log("[REGISTER] Hashing password...");
       const hashedPassword = await hashPassword(password);
       const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      console.log("[REGISTER] creating user:", userId, email);
+      console.log("[REGISTER] Creating user with ID:", userId);
       const user = await storage.createUser({
         id: userId,
         email,
@@ -125,13 +137,13 @@ export function setupAuth(app: Express) {
         subscriptionTier: "free"
       });
 
-      console.log("[REGISTER] user created successfully:", user.id);
+      console.log("[REGISTER] User created successfully, logging in...");
       req.login(user, (err) => {
         if (err) {
-          console.error("[REGISTER] login error:", err);
-          return next(err);
+          console.error("[REGISTER] Passport login error:", err);
+          return res.status(500).json({ message: "Registration successful but login failed" });
         }
-        console.log("[REGISTER] login successful for:", user.id);
+        console.log("[REGISTER] Registration and login successful for:", user.id);
         res.status(201).json({
           id: user.id,
           email: user.email,
@@ -143,10 +155,14 @@ export function setupAuth(app: Express) {
         });
       });
     } catch (error) {
-      console.error("[REGISTER] error:", error);
+      console.error("[REGISTER] Unexpected error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       res.status(500).json({ 
-        message: "Registration failed",
-        error: error.message || "Unknown error"
+        message: "Registration failed", 
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined 
       });
     }
   });
