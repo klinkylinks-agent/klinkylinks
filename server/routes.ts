@@ -8,6 +8,7 @@ import multer from "multer";
 import { generateDmcaNotice, analyzeContent, generateFingerprint } from "./services/openai";
 import { startMonitoring } from "./services/monitoring";
 import { setupAuth, isAuthenticated } from "./auth";
+import { setupFallbackAuth } from "./fallback-auth";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -26,8 +27,14 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  setupAuth(app);
+  // Auth middleware with fallback system
+  try {
+    setupAuth(app);
+    console.log("[ROUTES] Primary authentication system loaded");
+  } catch (error) {
+    console.error("[ROUTES] Primary auth failed, loading fallback:", error);
+    setupFallbackAuth(app);
+  }
 
   // Auth routes - Note: /api/register, /api/login, /api/logout, /api/user are now handled in auth.ts
 
