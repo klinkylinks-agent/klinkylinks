@@ -35,22 +35,31 @@ export function setupAuth(app: Express) {
     console.log("[AUTH] DATABASE_URL exists:", !!process.env.DATABASE_URL);
     console.log("[AUTH] SESSION_SECRET exists:", !!process.env.SESSION_SECRET);
     
+    // More graceful environment variable handling for Vercel
     if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL environment variable is required");
+      console.error("[AUTH] DATABASE_URL missing - using fallback auth");
+      return setupFallbackAuth(app);
     }
     if (!process.env.SESSION_SECRET) {
-      throw new Error("SESSION_SECRET environment variable is required");
+      console.error("[AUTH] SESSION_SECRET missing - using fallback auth");
+      return setupFallbackAuth(app);
     }
     
-    // Session configuration
-    const PostgresSessionStore = connectPg(session);
-    const sessionStore = new PostgresSessionStore({
-      conString: process.env.DATABASE_URL,
-      createTableIfMissing: true,
-      tableName: "sessions"
-    });
-    
-    console.log("[AUTH] Session store configured successfully");
+    // Session configuration with Vercel compatibility
+    let sessionStore;
+    try {
+      const PostgresSessionStore = connectPg(session);
+      sessionStore = new PostgresSessionStore({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: true,
+        tableName: "sessions"
+      });
+      console.log("[AUTH] PostgreSQL session store configured successfully");
+    } catch (sessionError) {
+      console.error("[AUTH] PostgreSQL session store failed, using memory store:", sessionError);
+      const MemoryStore = require('memorystore')(session);
+      sessionStore = new MemoryStore({ checkPeriod: 86400000 });
+    }
 
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "klinkylinks-dev-secret-change-in-production",
@@ -241,8 +250,10 @@ export function setupAuth(app: Express) {
   
   console.log("[AUTH] Authentication setup completed successfully");
   } catch (error) {
-    console.error("[AUTH] Failed to setup authentication:", error);
-    throw error;
+    console.error("[AUTH] Primary auth setup failed:", error);
+    console.log("[AUTH] Falling back to emergency auth system");
+    const { setupFallbackAuth } = require('./fallback-auth');
+    return setupFallbackAuth(app);
   }
 }
 
