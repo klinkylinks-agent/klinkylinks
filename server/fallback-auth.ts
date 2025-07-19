@@ -18,14 +18,16 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupFallbackAuth(app: Express) {
-  console.log("[FALLBACK] Emergency auth enabled");
+  console.log("[FALLBACK] Emergency auth");
   const users = new Map<string, any>();
 
   app.post("/api/register", async (req, res) => {
     try {
       const { email, password, confirmPassword, firstName, lastName } = req.body;
       if (!email || !password || !confirmPassword) {
-        return res.status(400).json({ message: "Email, password, and confirm password are required" });
+        return res
+          .status(400)
+          .json({ message: "Email, password & confirmPassword required" });
       }
       if (password !== confirmPassword) {
         return res.status(400).json({ message: "Passwords do not match" });
@@ -35,12 +37,12 @@ export function setupFallbackAuth(app: Express) {
       }
       const id = `user_${Date.now()}`;
       const hashed = await hashPassword(password);
-      const user = { id, email, firstName: firstName || null, lastName: lastName || null, password: hashed, role: "user", subscriptionStatus: "free", subscriptionTier: "free" };
-      users.set(email, user);
-      res.status(201).json(user);
-    } catch (error: any) {
-      console.error("[FALLBACK REGISTER] Error:", error);
-      res.status(500).json({ message: error.message, stack: error.stack });
+      const u = { id, email, password: hashed, firstName: firstName || null, lastName: lastName || null, role: "user", subscriptionStatus: "free", subscriptionTier: "free" };
+      users.set(email, u);
+      res.status(201).json(u);
+    } catch (err: any) {
+      console.error("[FALLBACK REGISTER] Error:", err);
+      res.status(500).json({ message: err.message });
     }
   });
 
@@ -48,25 +50,21 @@ export function setupFallbackAuth(app: Express) {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
+        return res.status(400).json({ message: "Email & password required" });
       }
-      const user = users.get(email);
-      if (!user) {
-        return res.status(401).json({ message: "Invalid email or password" });
+      const u = users.get(email);
+      if (!u || !(await comparePasswords(password, u.password))) {
+        return res.status(401).json({ message: "Invalid credentials" });
       }
-      const valid = await comparePasswords(password, user.password);
-      if (!valid) {
-        return res.status(401).json({ message: "Invalid email or password" });
-      }
-      res.json(user);
-    } catch (error: any) {
-      console.error("[FALLBACK LOGIN] Error:", error);
-      res.status(500).json({ message: error.message, stack: error.stack });
+      res.json(u);
+    } catch (err: any) {
+      console.error("[FALLBACK LOGIN] Error:", err);
+      res.status(500).json({ message: err.message });
     }
   });
 
   app.get("/api/user", (_req, res) => {
-    res.status(401).json({ message: "Not authenticated - fallback mode" });
+    res.status(401).json({ message: "Not authenticated (fallback)" });
   });
 
   app.post("/api/logout", (_req, res) => {
