@@ -25,10 +25,17 @@ export function setupFallbackAuth(app: Express) {
   
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, password, firstName, lastName } = req.body;
+      const { email, password, firstName, lastName, confirmPassword } = req.body; // Added confirmPassword for consistency with primary auth
       
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
+      console.log("[FALLBACK REGISTER] Request details:", { email, firstName, lastName, hasPassword: !!password, hasConfirmPassword: !!confirmPassword });
+      console.log("[FALLBACK REGISTER] Using fallback auth mode");
+      
+      if (!email || !password || !confirmPassword) {
+        return res.status(400).json({ message: "Email, password, and confirm password are required" });
+      }
+      
+      if (password !== confirmPassword) {
+        return res.status(400).json({ message: "Passwords do not match" });
       }
       
       if (users.has(email)) {
@@ -51,6 +58,8 @@ export function setupFallbackAuth(app: Express) {
       
       users.set(email, user);
       
+      console.log("[FALLBACK REGISTER] User created successfully:", { userId: user.id });
+      
       res.status(201).json({
         id: user.id,
         email: user.email,
@@ -61,14 +70,16 @@ export function setupFallbackAuth(app: Express) {
         subscriptionTier: user.subscriptionTier
       });
     } catch (error) {
-      console.error("[FALLBACK] Registration error:", error);
-      res.status(500).json({ message: "Registration failed" });
+      console.error("[FALLBACK REGISTER] Error:", error);
+      res.status(500).json({ message: "Registration failed. Please try again." });
     }
   });
   
   app.post("/api/login", async (req, res) => {
     try {
       const { email, password } = req.body;
+      
+      console.log("[FALLBACK LOGIN] Request details:", { email, hasPassword: !!password });
       
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
@@ -94,8 +105,8 @@ export function setupFallbackAuth(app: Express) {
         subscriptionTier: user.subscriptionTier
       });
     } catch (error) {
-      console.error("[FALLBACK] Login error:", error);
-      res.status(500).json({ message: "Login failed" });
+      console.error("[FALLBACK LOGIN] Error:", error);
+      res.status(500).json({ message: "Login failed. Please try again." });
     }
   });
   
