@@ -35,42 +35,37 @@ export function setupAuth(app: Express) {
     console.log("[AUTH] Setting up authentication...");
     console.log("[AUTH] DATABASE_URL exists:", !!process.env.DATABASE_URL);
     console.log("[AUTH] SESSION_SECRET exists:", !!process.env.SESSION_SECRET);
-    
-    // More graceful environment variable handling for Vercel
-    if (!process.env.DATABASE_URL) {
-      console.error("[AUTH] DATABASE_URL missing - using fallback auth");
+
+    if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET) {
+      console.error("[AUTH] Missing env vars, using fallback auth");
       return setupFallbackAuth(app);
     }
-    if (!process.env.SESSION_SECRET) {
-      console.error("[AUTH] SESSION_SECRET missing - using fallback auth");
-      return setupFallbackAuth(app);
-    }
-    
-    // Session configuration with Vercel compatibility
-    let sessionStore;
+
+    // Configure session store
+    let sessionStore: session.Store;
     try {
-      const PostgresSessionStore = connectPg(session);
-      sessionStore = new PostgresSessionStore({
+      const PostgresStore = connectPg(session);
+      sessionStore = new PostgresStore({
         conString: process.env.DATABASE_URL,
         createTableIfMissing: true,
         tableName: "sessions",
       });
-      console.log("[AUTH] PostgreSQL session store configured successfully");
-    } catch (sessionError) {
-      console.error("[AUTH] PostgreSQL session store failed, using memory store:", sessionError);
-      const MemoryStore = require("memorystore")(session);
+      console.log("[AUTH] PostgreSQL session store configured");
+    } catch (err) {
+      console.error("[AUTH] Postgres store failed, using memory store:", err);
+      const MemoryStore = require('memorystore')(session);
       sessionStore = new MemoryStore({ checkPeriod: 86400000 });
     }
 
     const sessionSettings: session.SessionOptions = {
-      secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
+      secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
       store: sessionStore,
       cookie: {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       },
     };
 
@@ -88,8 +83,8 @@ export function setupAuth(app: Express) {
             if (!user || !user.password) {
               return done(null, false, { message: "Invalid email or password" });
             }
-            const isValid = await comparePasswords(password, user.password);
-            if (!isValid) {
+            const valid = await comparePasswords(password, user.password);
+            if (!valid) {
               return done(null, false, { message: "Invalid email or password" });
             }
             return done(null, user);
@@ -113,71 +108,45 @@ export function setupAuth(app: Express) {
     // Registration endpoint
     app.post("/api/register", async (req, res, next) => {
       try {
-        console.log("[REGISTER] Starting registration process");
-        console.log("[REGISTER] Request body keys:", Object.keys(req.body || {}));
-        
-        const { email, password, firstName, lastName, confirmPassword } = req.body || {};
-        console.log(
-          "[REGISTER] Details:",
-          { email, firstName, lastName, hasPassword: !!password, hasConfirmPassword: !!confirmPassword }
-        );
-        
+        const { email, password, confirmPassword, firstName, lastName } = req.body;
         if (!email || !password || !confirmPassword) {
-          console.log("[REGISTER] Validation failed:", { email: !!email, password: !!password, confirmPassword: !!confirmPassword });
           return res.status(400).json({ message: "Email, password, and confirm password are required" });
         }
         if (password !== confirmPassword) {
           return res.status(400).json({ message: "Passwords do not match" });
         }
-
-        console.log("[REGISTER] Checking for existing user");
-        const existingUser = await storage.getUserByEmail(email);
-        if (existingUser) {
+        const existing = await storage.getUserByEmail(email);
+        if (existing) {
           return res.status(400).json({ message: "Email already registered" });
         }
-
-        const hashedPassword = await hashPassword(password);
+        const hashed = await hashPassword(password);
         const newUser = await storage.createUser({
           email,
-          password: hashedPassword,
+          password: hashed,
           firstName: firstName || null,
           lastName: lastName || null,
           role: "user",
           subscriptionStatus: "free",
           subscriptionTier: "free",
         });
-        console.log("[REGISTER] User created:", { userId: newUser.id });
-
-        // Auto-login
         req.logIn(newUser, (err) => {
           if (err) return next(err);
-          res.status(201).json({
-            id: newUser.id,
-            email: newUser.email,
-            firstName: newUser.firstName,
-            lastName: newUser.lastName,
-            role: newUser.role,
-            subscriptionStatus: newUser.subscriptionStatus,
-            subscriptionTier: newUser.subscriptionTier,
-          });
+          res.status(201).json(newUser);
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("[REGISTER] Error:", error);
-        res.status(500).json({ message: "Registration failed. Please try again." });
+        res.status(500).json({ message: error.message, stack: error.stack });
       }
     });
 
-    // (Other endpoints—login, logout, user—go here or in fallback)
-
+    // Other routes (login, logout, user) handled elsewhere or via Passport
   } catch (error) {
-    console.error("[AUTH] Setup error, falling back:", error);
+    console.error("[AUTH] Setup failed:", error);
     setupFallbackAuth(app);
   }
 }
 
 export function isAuthenticated(req: any, res: any, next: any) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
+  if (req.isAuthenticated()) return next();
   res.status(401).json({ message: "Unauthorized" });
 }
