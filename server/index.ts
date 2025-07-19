@@ -37,14 +37,22 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  try {
+    console.log("Starting server initialization...");
+    console.log("Environment check - DATABASE_URL exists:", !!process.env.DATABASE_URL);
+    console.log("Environment check - SESSION_SECRET exists:", !!process.env.SESSION_SECRET);
+    
+    const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("Server error:", err);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
+    // Don't rethrow in production - this crashes Vercel functions
   });
 
   // importantly only setup vite in development and after
@@ -68,4 +76,8 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
 })();

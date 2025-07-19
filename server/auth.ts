@@ -30,13 +30,27 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  // Session configuration
-  const PostgresSessionStore = connectPg(session);
-  const sessionStore = new PostgresSessionStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: true,
-    tableName: "sessions"
-  });
+  try {
+    console.log("[AUTH] Setting up authentication...");
+    console.log("[AUTH] DATABASE_URL exists:", !!process.env.DATABASE_URL);
+    console.log("[AUTH] SESSION_SECRET exists:", !!process.env.SESSION_SECRET);
+    
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is required");
+    }
+    if (!process.env.SESSION_SECRET) {
+      throw new Error("SESSION_SECRET environment variable is required");
+    }
+    
+    // Session configuration
+    const PostgresSessionStore = connectPg(session);
+    const sessionStore = new PostgresSessionStore({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: true,
+      tableName: "sessions"
+    });
+    
+    console.log("[AUTH] Session store configured successfully");
 
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "klinkylinks-dev-secret-change-in-production",
@@ -204,21 +218,32 @@ export function setupAuth(app: Express) {
 
   // Get current user
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ message: "Not authenticated" });
+    try {
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const user = req.user as SelectUser;
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionTier: user.subscriptionTier
+      });
+    } catch (error) {
+      console.error("[AUTH] /api/user error:", error);
+      res.status(500).json({ message: "Authentication check failed" });
     }
-    
-    const user = req.user as SelectUser;
-    res.json({
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      subscriptionStatus: user.subscriptionStatus,
-      subscriptionTier: user.subscriptionTier
-    });
   });
+  
+  console.log("[AUTH] Authentication setup completed successfully");
+  } catch (error) {
+    console.error("[AUTH] Failed to setup authentication:", error);
+    throw error;
+  }
 }
 
 // Authentication middleware
