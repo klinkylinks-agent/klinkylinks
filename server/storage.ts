@@ -1,5 +1,3 @@
-// File: server/storage.ts
-
 import crypto from "crypto";
 import { User as SelectUser } from "@shared/schema";
 
@@ -7,7 +5,7 @@ export interface DashboardStats {
   totalContent: number;
 }
 
-// We’ll treat SelectUser as our in‐memory user shape:
+// We’ll treat SelectUser as our in-memory user shape:
 export type UserRecord = SelectUser;
 
 const users = new Map<string, UserRecord>();
