@@ -26,36 +26,39 @@ async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
+// Extend Express.User with your SelectUser fields
 declare module "express" {
   interface User extends SelectUser {}
 }
 
 export function setupAuth(app: express.Express) {
+  // If env vars missing, fallback immediately
   if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET) {
-    console.error("[AUTH] Missing env vars, using fallback auth");
+    console.error("[AUTH] Missing DATABASE_URL or SESSION_SECRET – using fallback auth");
     return setupFallbackAuth(app);
   }
 
-  // Configure session store (Postgres or in-memory)
+  // 1) Session store (Postgres or memory)
   let store: session.Store;
   try {
     const PgStore = connectPg(session);
     store = new PgStore({
-      conString: process.env.DATABASE_URL,
+      conString: process.env.DATABASE_URL!,           // <-- non-null assertion
       tableName: "sessions",
       createTableIfMissing: true,
     });
   } catch (err) {
-    console.error("[AUTH] Postgres store failed, using memory store:", err);
+    console.error("[AUTH] Postgres store init failed, using in-memory store:", err);
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const MemoryStore = require("memorystore")(session);
     store = new MemoryStore({ checkPeriod: 86400000 });
   }
 
+  // 2) Setup express-session & passport
   app.set("trust proxy", 1);
   app.use(
     session({
-      secret: process.env.SESSION_SECRET!,
+      secret: process.env.SESSION_SECRET!,             // <-- non-null assertion
       resave: false,
       saveUninitialized: false,
       store,
@@ -69,6 +72,7 @@ export function setupAuth(app: express.Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // 3) LocalStrategy for login
   passport.use(
     new LocalStrategy({ usernameField: "email" }, async (email, pw, done) => {
       try {
@@ -86,7 +90,9 @@ export function setupAuth(app: express.Express) {
     })
   );
 
-  passport.serializeUser((user, done) => done(null, (user as SelectUser).id));
+  passport.serializeUser((user, done) => {
+    done(null, (user as SelectUser).id);
+  });
   passport.deserializeUser(async (id, done) => {
     try {
       const user = await storage.getUser(id);
@@ -96,13 +102,20 @@ export function setupAuth(app: express.Express) {
     }
   });
 
-  // Registration endpoint
+  // 4) Registration endpoint
   app.post("/api/register", async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, password, confirmPassword, firstName, lastName } = req.body;
+      // Cast body to known shape
+      const { email, password, confirmPassword, firstName, lastName } =
+        req.body as Record<
+          "email" | "password" | "confirmPassword" | "firstName" | "lastName",
+          string
+        >;
 
       if (!email || !password || !confirmPassword) {
-        return res.status(400).json({ message: "Email, password & confirmPassword required" });
+        return res
+          .status(400)
+          .json({ message: "Email, password & confirmPassword required" });
       }
       if (password !== confirmPassword) {
         return res.status(400).json({ message: "Passwords do not match" });
@@ -111,17 +124,19 @@ export function setupAuth(app: express.Express) {
         return res.status(400).json({ message: "Email already registered" });
       }
 
+      // Prepare CreateUserInput
       const hashed = await hashPassword(password);
       const input: CreateUserInput = {
         email,
         password: hashed,
-        firstName: firstName ?? null,
-        lastName: lastName ?? null,
+        firstName: firstName || null,
+        lastName: lastName || null,
         role: "user",
         subscriptionStatus: "free",
         subscriptionTier: "free",
       };
 
+      // Create & log in
       const newUser = await storage.createUser(input);
       req.logIn(newUser, (err) => {
         if (err) return next(err);
@@ -132,10 +147,9 @@ export function setupAuth(app: express.Express) {
       res.status(500).json({ message: err.message });
     }
   });
-
-  // Login, logout, other endpoints… add as needed
 }
 
+// 5) Auth check middleware
 export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
   if (req.isAuthenticated()) return next();
   res.status(401).json({ message: "Unauthorized" });
