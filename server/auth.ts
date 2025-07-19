@@ -33,19 +33,15 @@ async function comparePasswords(supplied: string, stored: string) {
 export function setupAuth(app: Express) {
   try {
     console.log("[AUTH] Setting up authentication...");
-    console.log("[AUTH] DATABASE_URL exists:", !!process.env.DATABASE_URL);
-    console.log("[AUTH] SESSION_SECRET exists:", !!process.env.SESSION_SECRET);
-
     if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET) {
       console.error("[AUTH] Missing env vars, using fallback auth");
       return setupFallbackAuth(app);
     }
 
-    // Configure session store
-    let sessionStore: session.Store;
+    let store: session.Store;
     try {
-      const PostgresStore = connectPg(session);
-      sessionStore = new PostgresStore({
+      const PgStore = connectPg(session);
+      store = new PgStore({
         conString: process.env.DATABASE_URL,
         createTableIfMissing: true,
         tableName: "sessions",
@@ -53,70 +49,66 @@ export function setupAuth(app: Express) {
       console.log("[AUTH] PostgreSQL session store configured");
     } catch (err) {
       console.error("[AUTH] Postgres store failed, using memory store:", err);
-      const MemoryStore = require('memorystore')(session);
-      sessionStore = new MemoryStore({ checkPeriod: 86400000 });
+      const MemoryStore = require("memorystore")(session);
+      store = new MemoryStore({ checkPeriod: 86400000 });
     }
 
-    const sessionSettings: session.SessionOptions = {
-      secret: process.env.SESSION_SECRET,
-      resave: false,
-      saveUninitialized: false,
-      store: sessionStore,
-      cookie: {
-        secure: process.env.NODE_ENV === "production",
-        httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      },
-    };
-
     app.set("trust proxy", 1);
-    app.use(session(sessionSettings));
+    app.use(
+      session({
+        secret: process.env.SESSION_SECRET!,
+        resave: false,
+        saveUninitialized: false,
+        store,
+        cookie: {
+          secure: process.env.NODE_ENV === "production",
+          httpOnly: true,
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        },
+      })
+    );
     app.use(passport.initialize());
     app.use(passport.session());
 
     passport.use(
-      new LocalStrategy(
-        { usernameField: "email" },
-        async (email, password, done) => {
-          try {
-            const user = await storage.getUserByEmail(email);
-            if (!user || !user.password) {
-              return done(null, false, { message: "Invalid email or password" });
-            }
-            const valid = await comparePasswords(password, user.password);
-            if (!valid) {
-              return done(null, false, { message: "Invalid email or password" });
-            }
-            return done(null, user);
-          } catch (error) {
-            return done(error);
+      new LocalStrategy({ usernameField: "email" }, async (email, pw, done) => {
+        try {
+          const user = await storage.getUserByEmail(email);
+          if (!user || !user.password) {
+            return done(null, false, { message: "Invalid credentials" });
           }
+          if (!(await comparePasswords(pw, user.password))) {
+            return done(null, false, { message: "Invalid credentials" });
+          }
+          return done(null, user);
+        } catch (e) {
+          return done(e as Error);
         }
-      )
+      })
     );
-
-    passport.serializeUser((user, done) => done(null, user.id));
-    passport.deserializeUser(async (id: string, done) => {
+    passport.serializeUser((u, d) => d(null, u.id));
+    passport.deserializeUser(async (id: string, d) => {
       try {
-        const user = await storage.getUser(id);
-        done(null, user);
-      } catch (error) {
-        done(error);
+        const u = await storage.getUser(id);
+        d(null, u);
+      } catch (e) {
+        d(e as Error);
       }
     });
 
-    // Registration endpoint
+    // Registration
     app.post("/api/register", async (req, res, next) => {
       try {
         const { email, password, confirmPassword, firstName, lastName } = req.body;
         if (!email || !password || !confirmPassword) {
-          return res.status(400).json({ message: "Email, password, and confirm password are required" });
+          return res
+            .status(400)
+            .json({ message: "Email, password & confirmPassword required" });
         }
         if (password !== confirmPassword) {
           return res.status(400).json({ message: "Passwords do not match" });
         }
-        const existing = await storage.getUserByEmail(email);
-        if (existing) {
+        if (await storage.getUserByEmail(email)) {
           return res.status(400).json({ message: "Email already registered" });
         }
         const hashed = await hashPassword(password);
@@ -133,15 +125,13 @@ export function setupAuth(app: Express) {
           if (err) return next(err);
           res.status(201).json(newUser);
         });
-      } catch (error: any) {
-        console.error("[REGISTER] Error:", error);
-        res.status(500).json({ message: error.message, stack: error.stack });
+      } catch (err: any) {
+        console.error("[REGISTER] Error:", err);
+        res.status(500).json({ message: err.message });
       }
     });
-
-    // Other routes (login, logout, user) handled elsewhere or via Passport
-  } catch (error) {
-    console.error("[AUTH] Setup failed:", error);
+  } catch (err) {
+    console.error("[AUTH] Setup failed, falling back:", err);
     setupFallbackAuth(app);
   }
 }
