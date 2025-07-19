@@ -3,11 +3,24 @@
 import crypto from "crypto";
 import { User as SelectUser } from "@shared/schema";
 
+/**
+ * In-memory stub of your User table.
+ * We only require the fields you pass in; everything else is defaulted.
+ */
 export interface DashboardStats {
   totalContent: number;
 }
 
-// We'll treat SelectUser as our in‐memory user shape:
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  subscriptionStatus: string;
+  subscriptionTier: string;
+}
+
 export type UserRecord = SelectUser;
 
 const users = new Map<string, UserRecord>();
@@ -17,11 +30,11 @@ export const storage = {
     return users.get(email.toLowerCase()) || null;
   },
 
-  async createUser(data: Omit<UserRecord, "id">): Promise<UserRecord> {
+  async createUser(data: CreateUserInput): Promise<UserRecord> {
     const id = crypto.randomUUID();
     const now = new Date();
-    // Supply all required SelectUser fields with sensible defaults:
-    const u: UserRecord = {
+
+    const user: UserRecord = {
       id,
       email: data.email,
       password: data.password,
@@ -36,15 +49,13 @@ export const storage = {
       createdAt: now,
       updatedAt: now,
     };
-    users.set(u.email.toLowerCase(), u);
-    return u;
+
+    users.set(user.email.toLowerCase(), user);
+    return user;
   },
 
   async getUser(id: string): Promise<UserRecord | null> {
-    for (const u of users.values()) {
-      if (u.id === id) return u;
-    }
-    return null;
+    return Array.from(users.values()).find((u) => u.id === id) || null;
   },
 
   async getDashboardStats(): Promise<DashboardStats> {
