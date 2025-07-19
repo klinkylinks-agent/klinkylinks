@@ -1,71 +1,103 @@
-// inside setupAuth, replace your app.post("/api/register", ...) with:
+// server/auth.ts
 
-app.post(
-  "/api/register",
-  async (req: Request, res: Response, next: NextFunction) => {
+import express, { Request, Response, NextFunction } from "express";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
+import { storage, UserRecord } from "./storage";
+
+// Tell TS that req.user is our UserRecord
+declare module "express-session" {
+  interface Session {
+    passport?: { user: string };
+  }
+}
+declare global {
+  namespace Express {
+    interface User extends UserRecord {}
+  }
+}
+
+export function setupAuth(app: express.Express) {
+  app.use(
+    session({
+      secret: "dev-secret", // swap for env var in production
+      resave: false,
+      saveUninitialized: false,
+    })
+  );
+  app.use(passport.initialize());
+  app.use(passport.session());
+
+  // Passport strategy for login
+  passport.use(
+    new LocalStrategy(async (email, password, done) => {
+      const user = await storage.getUserByEmail(email);
+      if (!user || user.password !== password) {
+        return done(null, false, { message: "Invalid credentials" });
+      }
+      return done(null, user);
+    })
+  );
+
+  // How to store user in session
+  passport.serializeUser((user: Express.User, done) => {
+    done(null, user.id);
+  });
+  passport.deserializeUser(async (id: string, done) => {
+    // find by id in our map
+    const all = Array.from(users.values());
+    const user = all.find((u) => u.id === id) || null;
+    done(null, user);
+  });
+
+  // Registration endpoint
+  app.post("/api/register", express.json(), async (req, res, next) => {
     try {
-      // 1) Grab & validate each field as a string
-      const {
-        email: rawEmail,
-        password: rawPassword,
-        confirmPassword: rawConfirm,
-        firstName: rawFirst,
-        lastName: rawLast,
-      } = req.body as Record<string, unknown>;
+      const { email, password } = req.body as { email?: any; password?: any };
 
-      if (
-        typeof rawEmail !== "string" ||
-        typeof rawPassword !== "string" ||
-        typeof rawConfirm !== "string"
-      ) {
-        return res
-          .status(400)
-          .json({ message: "Email, password & confirmPassword required" });
-      }
-
-      const email = rawEmail.trim();
-      const password = rawPassword;
-      const confirmPassword = rawConfirm;
-
-      // optional name fields
-      const firstName =
-        typeof rawFirst === "string" ? rawFirst.trim() : null;
-      const lastName =
-        typeof rawLast === "string" ? rawLast.trim() : null;
-
-      // 2) Basic checks
-      if (!email || !password || !confirmPassword) {
-        return res
-          .status(400)
-          .json({ message: "Email, password & confirmPassword required" });
-      }
-      if (password !== confirmPassword) {
-        return res.status(400).json({ message: "Passwords do not match" });
+      if (typeof email !== "string" || typeof password !== "string") {
+        return res.status(400).json({ message: "Email & password required" });
       }
       if (await storage.getUserByEmail(email)) {
-        return res.status(400).json({ message: "Email already registered" });
+        return res.status(400).json({ message: "Already registered" });
       }
-
-      // 3) Create user
-      const hashed = await hashPassword(password);
-      const newUser = await storage.createUser({
-        email,
-        password: hashed,
-        firstName,
-        lastName,
-        role: "user",
-        subscriptionStatus: "free",
-        subscriptionTier: "free",
-      });
-
-      // 4) Log them in
-      req.logIn(newUser, (err) => {
+      const user = await storage.createUser(email, password);
+      // auto-login
+      req.logIn(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(newUser);
+        res.status(201).json({ id: user.id, email: user.email });
       });
-    } catch (err: any) {
-      console.error("[REGISTER] Error:", err);
-      res.status(500).json({ message: err.message });
+    } catch (err) {
+      next(err);
     }
-  }
-);
+  });
+
+  // Login endpoint
+  app.post(
+    "/api/login",
+    express.json(),
+    passport.authenticate("local"),
+    (req: Request, res: Response) => {
+      // at this point, req.user is set
+      res.json({ id: req.user!.id, email: req.user!.email });
+    }
+  );
+
+  // Logout endpoint
+  app.post("/api/logout", (req, res) => {
+    req.logout(() => {
+      res.json({ success: true });
+    });
+  });
+}
+
+// middleware to protect routes
+export function isAuthenticated(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ message: "Unauthorized" });
+}
